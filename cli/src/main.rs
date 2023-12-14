@@ -1,8 +1,6 @@
 use std::{io, error::Error};
 
 fn main() {
-    println!("Hello, world!");
-
     loop {
         match next_cmd() {
             Ok(has_next) => {
