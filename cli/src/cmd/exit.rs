@@ -1,6 +1,6 @@
 use crate::application::Application;
 
-
+/// Command to exit the program. 
 pub struct Exit {
 }
 

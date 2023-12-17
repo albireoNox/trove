@@ -1,3 +1,8 @@
+//! This crate builds into an executible for running the CLI application. 
+ 
+// In general, code that could apply to different types of applications (GUI. 
+// web, etc.) should go elsewhere. 
+
 use std::{io, error::Error, collections::HashMap, cell::RefCell, rc::Rc};
 use application::Application;
 use cmd::{Cmd, exit::Exit};
@@ -17,6 +22,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/// State used by the CLI application. Manages the top-level REPL loop and parses input
+/// to dispatch to command structs. 
 struct CliApp {
     cmds: Vec<Rc<dyn Cmd>>,
     cmd_map: HashMap<&'static str, Rc<dyn Cmd>>,
