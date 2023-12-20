@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(PartialEq, PartialOrd, Debug)]
+#[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
 pub struct Money {
     // For now assume it's USD and just store the number of cents
     // Effective range is ~ ±$92 trillion
@@ -9,13 +9,13 @@ pub struct Money {
 
 
 impl Money {
-    fn new(cents: i64) -> Money {
+    pub fn new(cents: i64) -> Money {
         Money {cents}
     }
 
     /// Create a money object from a float representing number of dollars with cents as the decimal part, e.g. 199.99
-    /// Using this could potentially result in floating-point errors for numbers with a large number of significant figures
-    fn from_float(val: f64) -> Money {
+    /// Using this could potentially result in floating-point errors for large numbers
+    pub fn from_float(val: f64) -> Money {
         Money {cents: (val * 100.0).round() as i64}
     }
 }

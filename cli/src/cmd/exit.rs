@@ -1,4 +1,8 @@
-use crate::application::Application;
+use ledger::Ledger;
+
+use crate::cmd::CmdResult;
+
+use super::CmdError;
 
 /// Command to exit the program. 
 pub struct Exit {
@@ -11,10 +15,9 @@ impl Exit {
 }
 
 impl super::Cmd for Exit {
-    fn execute(&self, _args: Vec<&str>, application: &dyn Application) -> super::CmdResult {
+    fn execute(&self, _args: Vec<&str>, _ledger: &mut Ledger) -> Result<CmdResult, CmdError> {
         println!("Exiting...");
-        application.signal_terminate();
-        Ok(())
+        Ok(CmdResult::SignalTerminate)
     }
 
     fn names(&self) -> Vec<&'static str> {

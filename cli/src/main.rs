@@ -3,15 +3,14 @@
 // In general, code that could apply to different types of applications (GUI. 
 // web, etc.) should go elsewhere. 
 
-use std::{io, error::Error, collections::HashMap, cell::RefCell, rc::Rc};
-use application::Application;
-use cmd::{Cmd, exit::Exit};
+use std::{io, error::Error, collections::HashMap, rc::Rc};
+use cmd::{Cmd, CmdError, CmdResult};
+use ledger::Ledger;
 
 mod cmd;
-mod application;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let app = CliApp::new();
+    let mut app = CliApp::new();
     if let Err(e) = app.run() {
         eprintln!("Encountered fatal error: {e}");
         eprintln!("Exiting...");
@@ -27,7 +26,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 struct CliApp {
     cmds: Vec<Rc<dyn Cmd>>,
     cmd_map: HashMap<&'static str, Rc<dyn Cmd>>,
-    terminated: RefCell<bool>
+    ledger: Ledger,
 }
 
 impl CliApp {
@@ -35,10 +34,11 @@ impl CliApp {
         let mut app = CliApp {
             cmds: Vec::new(),
             cmd_map: HashMap::new(),
-            terminated: RefCell::new(false)
+            ledger: Ledger::new_empty(), // TODO: load exiting one
         };
     
-        app.cmds.push(Rc::new(Exit::new()));
+        app.cmds.push(Rc::new(cmd::exit::Exit::new()));
+        app.cmds.push(Rc::new(cmd::account::Account::new()));
 
         for cmd in &app.cmds {
             for name in cmd.names() {
@@ -49,18 +49,24 @@ impl CliApp {
         app
     }
 
-    fn run(&self) -> Result<(), Box<dyn Error>> {
-        while !(*self.terminated.borrow()) {
-            if let Err(e) = self.run_one_command() {
+    fn run(&mut self) -> Result<(), Box<dyn Error>> {
+        loop {
+            match self.run_one_command() {
+                Ok(CmdResult::SignalTerminate) => { 
+                    break; 
+                }, 
+                Ok(CmdResult::Ok) => { /* Next command */ }
                 // For now all errors are recoverable
-                eprintln!("{}", e);
+                Err(e) => { 
+                    eprintln!("{}", e); 
+                },
             }
         }
 
         Ok(())
     }
 
-    fn run_one_command(&self) -> Result<(), Box<dyn Error>> {
+    fn run_one_command(&mut self) -> Result<CmdResult, Box<dyn Error>> {
         let mut raw_input = String::new();
     
         io::stdin().read_line(&mut raw_input)?;
@@ -69,7 +75,7 @@ impl CliApp {
     
         if trimmed_input.len() == 0 {
             // No need to create error, just move on
-            return Ok(());
+            return Ok(CmdResult::Ok);
         }
     
         let mut split = trimmed_input.split_whitespace();
@@ -78,12 +84,15 @@ impl CliApp {
     
         let cmd = self.cmd_map.get(cmd_name).ok_or_else(|| format!("Could not find command named '{}'", cmd_name))?;
 
-        cmd.execute(args, self)
-    }
-}
-
-impl Application for CliApp {
-    fn signal_terminate(&self) {
-        *self.terminated.borrow_mut() = true;
+        match cmd.execute(args, &mut self.ledger) {
+            Ok(r) => Ok(r),
+            Err(CmdError::Syntax(msg)) => {
+                // TODO: print usage from cmd object
+                eprint!("Syntax Error: ");
+                eprintln!("{}", msg);
+                // We handled the error, now we can return OK
+                Ok(CmdResult::Ok)
+            },
+        }
     }
 }
