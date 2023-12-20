@@ -36,15 +36,8 @@ impl CliApp {
             cmd_map: HashMap::new(),
             ledger: Ledger::new_empty(), // TODO: load exiting one
         };
-    
-        app.cmds.push(Rc::new(cmd::exit::Exit::new()));
-        app.cmds.push(Rc::new(cmd::account::Account::new()));
 
-        for cmd in &app.cmds {
-            for name in cmd.names() {
-                app.cmd_map.insert(name, cmd.clone());
-            }
-        }
+        app.register_cmds();
 
         app
     }
@@ -93,6 +86,17 @@ impl CliApp {
                 // We handled the error, now we can return OK
                 Ok(CmdResult::Ok)
             },
+        }
+    }
+
+    fn register_cmds(&mut self) {
+        self.cmds.push(Rc::new(cmd::exit::Exit::new()));
+        self.cmds.push(Rc::new(cmd::account::Account::new()));
+
+        for cmd in &self.cmds {
+            for name in cmd.names() {
+                self.cmd_map.insert(name, cmd.clone());
+            }
         }
     }
 }
