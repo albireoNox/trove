@@ -20,6 +20,10 @@ impl Ledger {
         let new_account = Account::new_empty(name);
         self.accounts.push(new_account);
     }
+
+    pub fn get_accounts(&self) -> &Vec<Account> {
+        &self.accounts
+    }
 }
 
 #[cfg(test)]

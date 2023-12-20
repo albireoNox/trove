@@ -18,11 +18,14 @@ impl Cmd for Account {
             Some(&"--new") => {
                 self.add_new_account(&args[1..], ledger)
             },
+            Some(&"--list") => {
+                self.list_accounts(ledger)
+            }
             Some(unhandled_subcmd) => {
-                return Err(CmdError::Syntax(format!("Subcommand '{}' not implemented for command 'account'", unhandled_subcmd)))
+                Err(CmdError::Syntax(format!("Subcommand '{}' not implemented for command 'account'", unhandled_subcmd)))
             }
             None => {
-                return Err(CmdError::Syntax("Command 'account' needs subcommand.".to_string()))
+                Err(CmdError::Syntax("Command 'account' needs subcommand.".to_string()))
             },
         }
     }
@@ -40,6 +43,14 @@ impl Account {
 
         ledger.add_new_account(String::from(*name));
         println!("Created account '{}'", name);
+        Ok(CmdResult::Ok)
+    }
+
+    fn list_accounts(&self, ledger: &Ledger) -> Result<CmdResult, CmdError> {
+        for account in ledger.get_accounts() {
+            println!("\t{}", account.get_name())
+        }
+
         Ok(CmdResult::Ok)
     }
 }
