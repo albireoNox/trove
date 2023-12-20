@@ -6,13 +6,11 @@ use super::{Cmd, CmdError, CmdResult};
 pub struct Account {
 }
 
-impl Account {
-    pub fn new() -> Account {
+impl Cmd for Account {
+    fn new() -> Account {
         Account { }
     }
-}
 
-impl Cmd for Account {
     fn execute(&self, args: Vec<&str>, ledger: &mut Ledger) -> Result<CmdResult, CmdError> {
         match args.get(0) {
             Some(&"--new") => {

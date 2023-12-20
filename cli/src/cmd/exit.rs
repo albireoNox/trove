@@ -8,13 +8,11 @@ use super::CmdError;
 pub struct Exit {
 }
 
-impl Exit {
-    pub fn new() -> Exit {
+impl super::Cmd for Exit {
+    fn new() -> Exit {
         Exit{}
     }
-}
 
-impl super::Cmd for Exit {
     fn execute(&self, _args: Vec<&str>, _ledger: &mut Ledger) -> Result<CmdResult, CmdError> {
         println!("Exiting...");
         Ok(CmdResult::SignalTerminate)

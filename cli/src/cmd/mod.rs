@@ -25,6 +25,7 @@ impl Display for CmdError {
 
 // Base for all commands
 pub trait Cmd {
+    fn new() -> Self where Self: Sized;
     fn execute(&self, args: Vec<&str>, ledger: &mut Ledger) -> Result<CmdResult, CmdError>;
     fn names(&self) -> Vec<&'static str>;
 }
