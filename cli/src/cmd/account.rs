@@ -46,7 +46,7 @@ impl Account {
 
     fn list_accounts(&self, ledger: &Ledger) -> Result<CmdResult, CmdError> {
         for account in ledger.get_accounts() {
-            println!("\t{}", account.get_name())
+            println!("  {}\t{}", account.get_name(), account.get_total())
         }
 
         Ok(CmdResult::Ok)

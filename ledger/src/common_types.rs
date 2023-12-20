@@ -1,5 +1,3 @@
-use std::fmt;
-
 #[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
 pub struct Money {
     // For now assume it's USD and just store the number of cents
@@ -20,13 +18,37 @@ impl Money {
     }
 }
 
-impl fmt::Display for Money {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for Money {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}${:.2}", 
             if self.cents < 0 {"-"} else {""},
             (self.cents as f64).abs() / 100.0)
+    }
+}
+
+impl<'a> std::iter::Sum<&'a Money> for Money {
+    fn sum<I: Iterator<Item = &'a Self>>(iter: I) -> Self {
+        let mut sum = Money::from_float(0.0);
+        for m in iter {
+            sum += *m;
+        }
+        sum
+    }
+}
+
+impl std::ops::Add for Money {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Money::new(self.cents + rhs.cents)
+    }
+}
+
+impl std::ops::AddAssign for Money {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 
@@ -88,4 +110,25 @@ mod tests {
         assert_eq!(format!("{}", Money::from_float(0.0)), "$0.00")
     }
 
+    #[test]
+    fn add() {
+        assert_eq!(Money::from_float(10.00) + Money::from_float(0.50), Money::from_float(10.50))
+    }
+
+    #[test]
+    fn add_assign() {
+        let mut m = Money::from_float(10.00);
+        m += Money::from_float(0.50);
+        assert_eq!(m, Money::from_float(10.50))
+    }
+
+    #[test]
+    fn sum() {
+        let a = vec![
+            Money::from_float(1.00),
+            Money::from_float(0.50),
+            Money::from_float(100.00)];
+        let s: Money = a.iter().sum();
+        assert_eq!(s, Money::from_float(101.50))
+    }
 }

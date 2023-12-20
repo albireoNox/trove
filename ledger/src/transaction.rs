@@ -12,6 +12,10 @@ impl Transaction {
     pub fn new(amount: Money, time: DateTime<Utc>, description: String) -> Transaction {
         Transaction {amount, time, description}
     }
+
+    pub fn get_amount(&self) -> &Money {
+        &self.amount
+    }
 }
 
 #[cfg(test)]
