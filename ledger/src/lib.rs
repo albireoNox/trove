@@ -1,12 +1,13 @@
 //! The "Ledger" type represents the user's total financial state, including transactions, accounts, transaction categories, etc.
 //! It is the top-level object the application interacts with in order to query and manipulate user data. 
 
-mod account;
-mod common_types;
-mod transaction;
+pub mod account;
+pub mod common_types;
+pub mod transaction;
 
 use account::Account;
 
+// TODO: Move this to it's own file, if it's not annoying from a module hierarchy standpoint. 
 pub struct Ledger {
     accounts: Vec<Account>,
 }
@@ -23,6 +24,16 @@ impl Ledger {
 
     pub fn get_accounts(&self) -> &Vec<Account> {
         &self.accounts
+    }
+
+    pub fn get_account_by_name(&mut self, name: &String) -> Option<&mut Account> {
+        for account in self.accounts.iter_mut() {
+            if account.get_name().eq_ignore_ascii_case(name) {
+                return Some(account);
+            }
+        }
+
+        return None
     }
 }
 
@@ -42,5 +53,27 @@ mod tests {
         ledger.add_new_account("My Account".to_string());
         assert_eq!(ledger.accounts.len(), 1);
         assert_eq!(ledger.accounts[0].get_name(), "My Account");
+    }
+
+    #[test]
+    fn get_account_by_name_success() {
+        let mut ledger = Ledger::new_empty();
+        let name = "My Account".to_string();
+        ledger.add_new_account(name.clone());
+        assert_eq!(ledger.get_account_by_name(&name).expect("FAILURE").get_name(), &name);
+    }
+
+    #[test]
+    fn get_account_by_name_not_found() {
+        let mut ledger = Ledger::new_empty();
+        let name = "My Account".to_string();
+        ledger.add_new_account(name.clone());
+        assert!(ledger.get_account_by_name(&"INVALID ACCOUNT".to_string()).is_none());
+    }
+
+    #[test]
+    fn get_account_by_name_empty() {
+        let mut ledger = Ledger::new_empty();
+        assert!(ledger.get_account_by_name(&"My Account".to_string()).is_none());
     }
 }

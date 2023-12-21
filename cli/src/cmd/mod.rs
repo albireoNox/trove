@@ -1,13 +1,17 @@
 
-use std::fmt::Display;
+use std::{fmt::Display, error::Error};
 
 use ledger::Ledger;
 
 pub mod account;
 pub mod exit;
+pub mod transaction;
 
+#[derive(Debug)]
 pub enum CmdError {
-    Syntax(String)
+    Syntax(String),
+    Argument(String),
+    Dependency(Box<dyn Error>),
 }
 
 pub enum CmdResult {
@@ -19,9 +23,13 @@ impl Display for CmdError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CmdError::Syntax(msg) => write!(f, "{}", msg),
+            CmdError::Argument(msg) => write!(f, "{}", msg),
+            CmdError::Dependency(err) => err.fmt(f),
         }
     }
 }
+
+impl Error for CmdError { }
 
 // Base for all commands
 pub trait Cmd {

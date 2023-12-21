@@ -86,12 +86,19 @@ impl CliApp {
                 // We handled the error, now we can return OK
                 Ok(CmdResult::Ok)
             },
+            Err(CmdError::Argument(msg)) => {
+                Err(Box::new(CmdError::Argument(msg)))
+            }
+            Err(CmdError::Dependency(err)) => { 
+                Err(err) // Pass up dependency errors
+            }
         }
     }
 
     fn register_cmds(&mut self) {
-        self.cmds.push(Rc::new(cmd::exit::Exit::new()));
         self.cmds.push(Rc::new(cmd::account::Account::new()));
+        self.cmds.push(Rc::new(cmd::exit::Exit::new()));
+        self.cmds.push(Rc::new(cmd::transaction::Transaction::new()));
 
         for cmd in &self.cmds {
             for name in cmd.names() {

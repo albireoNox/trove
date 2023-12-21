@@ -29,7 +29,7 @@ impl Cmd for Account {
     }
 
     fn names(&self) -> Vec<&'static str> {
-        vec!["account", "acc"]
+        vec!["account", "acc", "ac"]
     }
 }
 
