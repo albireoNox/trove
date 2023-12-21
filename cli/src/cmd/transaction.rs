@@ -19,7 +19,7 @@ impl Cmd for Transaction {
         let amount: f64 = args[1].parse().map_err(|e| CmdError::Dependency(Box::new(e)))?;
         let description = args[2].to_string();
 
-        let account: &mut Account = ledger.get_account_by_name(&account_name).ok_or(
+        let account: &mut Account = ledger.get_account_by_name_mut(&account_name).ok_or(
             CmdError::Argument(format!("Could not find account named '{}'", account_name)))?;
 
         // TODO: ummm...get this from somewhere

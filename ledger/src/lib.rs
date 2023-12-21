@@ -26,7 +26,7 @@ impl Ledger {
         &self.accounts
     }
 
-    pub fn get_account_by_name(&mut self, name: &String) -> Option<&mut Account> {
+    pub fn get_account_by_name_mut(&mut self, name: &String) -> Option<&mut Account> {
         for account in self.accounts.iter_mut() {
             if account.get_name().eq_ignore_ascii_case(name) {
                 return Some(account);
@@ -60,7 +60,7 @@ mod tests {
         let mut ledger = Ledger::new_empty();
         let name = "My Account".to_string();
         ledger.add_new_account(name.clone());
-        assert_eq!(ledger.get_account_by_name(&name).expect("FAILURE").get_name(), &name);
+        assert_eq!(ledger.get_account_by_name_mut(&name).expect("FAILURE").get_name(), &name);
     }
 
     #[test]
@@ -68,12 +68,12 @@ mod tests {
         let mut ledger = Ledger::new_empty();
         let name = "My Account".to_string();
         ledger.add_new_account(name.clone());
-        assert!(ledger.get_account_by_name(&"INVALID ACCOUNT".to_string()).is_none());
+        assert!(ledger.get_account_by_name_mut(&"INVALID ACCOUNT".to_string()).is_none());
     }
 
     #[test]
     fn get_account_by_name_empty() {
         let mut ledger = Ledger::new_empty();
-        assert!(ledger.get_account_by_name(&"My Account".to_string()).is_none());
+        assert!(ledger.get_account_by_name_mut(&"My Account".to_string()).is_none());
     }
 }
