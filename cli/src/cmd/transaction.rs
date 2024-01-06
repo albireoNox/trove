@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 use ledger::{common_types::Money, account::Account};
 
+use crate::application::Application;
+
 use super::{Cmd, CmdError, CmdResult};
 
 pub struct Transaction { }
@@ -10,7 +12,7 @@ impl Cmd for Transaction {
         Transaction {  }
     }
 
-    fn execute(&self, args: Vec<&str>, ledger: &mut ledger::Ledger) -> Result<super::CmdResult, super::CmdError> {
+    fn execute(&self, args: Vec<&str>, ledger: &mut ledger::Ledger, _app: &mut Application) -> Result<super::CmdResult, super::CmdError> {
         if args.len() != 3 {
             return Err(CmdError::Syntax("Invalid format. Usage: `transaction [account_name] [amount] [description]`".to_string()))
         }

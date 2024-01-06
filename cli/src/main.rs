@@ -4,14 +4,16 @@
 // web, etc.) should go elsewhere. 
 
 use std::{io, error::Error, collections::HashMap, rc::Rc};
+use application::Application;
 use cmd::{Cmd, CmdError, CmdResult};
 use ledger::Ledger;
 
 mod cmd;
+mod application;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut app = CliApp::new();
-    if let Err(e) = app.run() {
+    let mut cli_app = CliApp::new();
+    if let Err(e) = cli_app.run() {
         eprintln!("Encountered fatal error: {e}");
         eprintln!("Exiting...");
 
@@ -27,19 +29,22 @@ struct CliApp {
     cmds: Vec<Rc<dyn Cmd>>,
     cmd_map: HashMap<&'static str, Rc<dyn Cmd>>,
     ledger: Ledger,
+    application: Application,
 }
 
 impl CliApp {
     fn new() -> CliApp {
-        let mut app = CliApp {
+        let application = Application::new_default();
+        let mut cli_app = CliApp {
             cmds: Vec::new(),
             cmd_map: HashMap::new(),
             ledger: Ledger::new_empty(), // TODO: load exiting one
+            application: application
         };
 
-        app.register_cmds();
+        cli_app.register_cmds();
 
-        app
+        cli_app
     }
 
     fn run(&mut self) -> Result<(), Box<dyn Error>> {
@@ -77,7 +82,7 @@ impl CliApp {
     
         let cmd = self.cmd_map.get(cmd_name).ok_or_else(|| format!("Could not find command named '{}'", cmd_name))?;
 
-        match cmd.execute(args, &mut self.ledger) {
+        match cmd.execute(args, &mut self.ledger, &mut self.application) {
             Ok(r) => Ok(r),
             Err(CmdError::Syntax(msg)) => {
                 // TODO: print usage from cmd object
@@ -98,6 +103,7 @@ impl CliApp {
     fn register_cmds(&mut self) {
         self.cmds.push(Rc::new(cmd::account::Account::new()));
         self.cmds.push(Rc::new(cmd::exit::Exit::new()));
+        self.cmds.push(Rc::new(cmd::store::Store::new()));
         self.cmds.push(Rc::new(cmd::transaction::Transaction::new()));
 
         for cmd in &self.cmds {

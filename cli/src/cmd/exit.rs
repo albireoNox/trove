@@ -1,6 +1,6 @@
 use ledger::Ledger;
 
-use crate::cmd::CmdResult;
+use crate::{cmd::CmdResult, application::Application};
 
 use super::CmdError;
 
@@ -13,7 +13,7 @@ impl super::Cmd for Exit {
         Exit{}
     }
 
-    fn execute(&self, _args: Vec<&str>, _ledger: &mut Ledger) -> Result<CmdResult, CmdError> {
+    fn execute(&self, _args: Vec<&str>, _ledger: &mut Ledger, _app: &mut Application) -> Result<CmdResult, CmdError> {
         println!("Exiting...");
         Ok(CmdResult::SignalTerminate)
     }

@@ -1,10 +1,9 @@
-#[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
+#[derive(PartialEq, PartialOrd, Debug, Clone, Copy, serde::Deserialize, serde::Serialize)]
 pub struct Money {
     // For now assume it's USD and just store the number of cents
     // Effective range is ~ ±$92 trillion
     cents: i64,
 }
-
 
 impl Money {
     pub fn new(cents: i64) -> Money {
@@ -51,7 +50,6 @@ impl std::ops::AddAssign for Money {
         *self = *self + rhs;
     }
 }
-
 
 #[cfg(test)]
 mod tests {
