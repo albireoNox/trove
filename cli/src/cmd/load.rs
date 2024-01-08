@@ -20,7 +20,7 @@ impl super::Cmd for Load {
                 *ledger = new_ledger
             },
             Err(e) => {
-                return Err(CmdError::Dependency(Box::new(e)))
+                return Err(CmdError::Dependency(e))
             },
         }
         println!("Loaded!");

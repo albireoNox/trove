@@ -17,7 +17,7 @@ impl super::Cmd for Store {
         println!("Saving user data...");
         if let Err(e) = app.file_store.store_ledger(ledger) {
             eprintln!("Failed to save data!");
-            return Err(CmdError::Dependency(Box::new(e)))
+            return Err(CmdError::Dependency(e))
         }
         println!("Saved!");
         Ok(CmdResult::Ok)

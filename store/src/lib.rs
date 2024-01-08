@@ -1,4 +1,4 @@
-use std::{fs::File, path::{Path, PathBuf}, io::{ErrorKind, Error}};
+use std::{fs::File, path::{Path, PathBuf}, error::Error};
 
 use ciborium::{into_writer, from_reader};
 use ledger::Ledger;
@@ -17,20 +17,20 @@ impl FileStore {
         FileStore { root_path: PathBuf::from(root_path) }
     }
 
-    pub fn store_ledger(&self, ledger: &Ledger) -> std::io::Result<()> {
+    pub fn store_ledger(&self, ledger: &Ledger) -> Result<(), Box<dyn Error>> {
         let file_writer = File::create(self.get_store_file_path())?; 
-        into_writer(&FILE_HEADER, &file_writer).expect("failure");
-        into_writer(ledger, &file_writer).expect("failure");
+        into_writer(&FILE_HEADER, &file_writer)?;
+        into_writer(ledger, &file_writer)?;
         Ok(())
     }
 
-    pub fn load_ledger(&self) -> std::io::Result<Ledger> {
+    pub fn load_ledger(&self) -> Result<Ledger, Box<dyn Error>> {
         let file_reader = File::open(self.get_store_file_path())?;
-        let file_header: FileHeader = from_reader(&file_reader).expect("failure");
+        let file_header: FileHeader = from_reader(&file_reader)?;
         if file_header.version != CURRENT_VERSION {
-            return Err(Error::new(ErrorKind::Unsupported, "Version mismatch, cannot load file"))
+            return Err(Box::from("Version mismatch, cannot load file"));
         }
-        let ledger: Ledger = from_reader(&file_reader).expect("failure");
+        let ledger: Ledger = from_reader(&file_reader)?;
         Ok(ledger)
     }
 
