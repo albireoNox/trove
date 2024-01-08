@@ -42,7 +42,6 @@ impl FileStore {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct FileHeader {
     version: u32,
-
 }
 
 #[cfg(test)]
