@@ -6,6 +6,7 @@ use super::application::Application;
 
 pub mod account;
 pub mod exit;
+pub mod load;
 pub mod store;
 pub mod transaction;
 

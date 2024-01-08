@@ -103,6 +103,7 @@ impl CliApp {
     fn register_cmds(&mut self) {
         self.cmds.push(Rc::new(cmd::account::Account::new()));
         self.cmds.push(Rc::new(cmd::exit::Exit::new()));
+        self.cmds.push(Rc::new(cmd::load::Load::new()));
         self.cmds.push(Rc::new(cmd::store::Store::new()));
         self.cmds.push(Rc::new(cmd::transaction::Transaction::new()));
 
