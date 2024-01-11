@@ -17,6 +17,7 @@ pub enum CmdError {
     Dependency(Box<dyn Error>),
 }
 
+#[derive(Debug)]
 pub enum CmdResult {
     Ok, 
     SignalTerminate

@@ -6,10 +6,12 @@ use std::error::Error;
 use ledger::Ledger;
 use store::FileStore;
 
+#[cfg_attr(test, faux::create)]
 pub struct Application {
     file_store: FileStore
 }
 
+#[cfg_attr(test, faux::methods)]
 impl Application {
     pub fn new_default() -> Application {
         let exe_path = std::env::current_exe().expect("Failed to get path to exe");

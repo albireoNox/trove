@@ -1,6 +1,6 @@
 use crate::{transaction::Transaction, common_types::Money};
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Account {
     // For now, there's just a list of transactions. TODO: make this be not stupid. 
     transactions: Vec<Transaction>,

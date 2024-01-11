@@ -10,3 +10,6 @@ store = { path = "../store" }
 ledger = { path = "../ledger" }
 
 chrono = { workspace = true }
+
+[dev-dependencies]
+faux = { workspace = true }

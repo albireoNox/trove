@@ -8,7 +8,7 @@ pub mod transaction;
 use account::Account;
 
 // TODO: Move this to it's own file, if it's not annoying from a module hierarchy standpoint. 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Ledger {
     accounts: Vec<Account>,
 }

@@ -31,3 +31,29 @@ impl super::Cmd for Load {
         vec!["load"]
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::cmd::Cmd;
+
+    use super::*;
+
+    #[test]
+    fn execute_load_cmd() {
+        let mut application_mock = Application::faux();
+
+        faux::when!(
+            application_mock.load_ledger(_)
+        ).then(|()| {
+            let mut test_ledger = Ledger::new_empty();
+            test_ledger.add_new_account(String::from("test_account"));
+            Ok(test_ledger)
+        });
+
+        let load_cmd = Load::new();
+        let mut actual_ledger = Ledger::new_empty();
+        assert!(load_cmd.execute(vec![], &mut actual_ledger, &mut application_mock).is_ok());
+        assert!(actual_ledger.get_account_by_name_mut(&String::from("test_account")).is_some())
+    }
+}
