@@ -15,7 +15,7 @@ impl super::Cmd for Load {
 
     fn execute(&self, _args: Vec<&str>, ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
         println!("Loading user data...");
-        match app.file_store.load_ledger() {
+        match app.load_ledger() {
             Ok(new_ledger) => {
                 *ledger = new_ledger
             },

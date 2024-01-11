@@ -15,7 +15,7 @@ impl super::Cmd for Store {
 
     fn execute(&self, _args: Vec<&str>, ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
         println!("Saving user data...");
-        if let Err(e) = app.file_store.store_ledger(ledger) {
+        if let Err(e) = app.store_ledger(ledger) {
             eprintln!("Failed to save data!");
             return Err(CmdError::Dependency(e))
         }
