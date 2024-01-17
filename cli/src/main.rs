@@ -114,3 +114,15 @@ impl CliApp {
         }
     }
 }
+
+
+#[cfg(test)]
+mod cli_app_tests {
+
+    use super::*;
+
+    #[test]
+    fn create() {
+        let _ = CliApp::new();
+    }
+}
