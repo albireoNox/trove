@@ -13,7 +13,7 @@ impl super::Cmd for Load {
         Load{}
     }
 
-    fn execute(&self, _args: Vec<&str>, ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
+    fn execute(&self, _args: &[&str], ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
         println!("Loading user data...");
         match app.load_ledger() {
             Ok(new_ledger) => {
@@ -53,7 +53,7 @@ mod tests {
 
         let load_cmd = Load::new();
         let mut actual_ledger = Ledger::new_empty();
-        assert!(load_cmd.execute(vec![], &mut actual_ledger, &mut application_mock).is_ok());
+        assert!(load_cmd.execute(&vec![], &mut actual_ledger, &mut application_mock).is_ok());
         assert!(actual_ledger.get_account_by_name_mut(&String::from("test_account")).is_some())
     }
 }

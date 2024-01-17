@@ -13,7 +13,7 @@ impl super::Cmd for Store {
         Store{}
     }
 
-    fn execute(&self, _args: Vec<&str>, ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
+    fn execute(&self, _args: &[&str], ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
         println!("Saving user data...");
         if let Err(e) = app.store_ledger(ledger) {
             eprintln!("Failed to save data!");
@@ -53,7 +53,7 @@ mod tests {
 
         let store_cmd = Store::new();
 
-        assert!(store_cmd.execute(vec![], &mut test_ledger, &mut application_mock).is_ok());
+        assert!(store_cmd.execute(&vec![], &mut test_ledger, &mut application_mock).is_ok());
         assert!(stored);
     }
 }

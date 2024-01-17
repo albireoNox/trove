@@ -13,7 +13,7 @@ impl super::Cmd for Exit {
         Exit{}
     }
 
-    fn execute(&self, _args: Vec<&str>, _ledger: &mut Ledger, _app: &mut Application) -> Result<CmdResult, CmdError> {
+    fn execute(&self, _args: &[&str], _ledger: &mut Ledger, _app: &mut Application) -> Result<CmdResult, CmdError> {
         println!("Exiting...");
         Ok(CmdResult::SignalTerminate)
     }

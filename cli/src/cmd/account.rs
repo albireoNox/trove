@@ -13,7 +13,7 @@ impl Cmd for Account {
         Account { }
     }
 
-    fn execute(&self, args: Vec<&str>, ledger: &mut Ledger, _app: &mut Application) -> Result<CmdResult, CmdError> {
+    fn execute(&self, args: &[&str], ledger: &mut Ledger, _app: &mut Application) -> Result<CmdResult, CmdError> {
         match args.get(0) {
             Some(&"--new") => {
                 self.add_new_account(&args[1..], ledger)
