@@ -11,6 +11,9 @@ use ledger::Ledger;
 mod cmd;
 mod application;
 
+static ESCAPE_CHAR: char = '\\';
+static QUOTE_CHARS: [char; 2] = ['\'', '"'];
+
 fn main() -> Result<(), Box<dyn Error>> {
     let mut cli_app = CliApp::new(command_list());
     if let Err(e) = cli_app.run() {
@@ -71,14 +74,15 @@ impl CliApp {
     }
 
     fn run_cmd(&mut self, raw_input: &String) -> Result<CmdResult, Box<dyn Error>> {
-        let tokens = tokenize_string(raw_input);
-    
+        let tokens_owned = tokenize_string(raw_input);
+        let tokens: Vec<&str> = tokens_owned.iter().map(|s| s.as_str()).collect();
+
         if tokens.len() == 0 {
             // No need to create error, just move on
             return Ok(CmdResult::Ok);
         }
 
-        let cmd_name = tokens[0];
+        let cmd_name = &tokens[0];
         let args = &tokens[1..];
 
         let cmd = self.cmd_map.get(cmd_name).ok_or_else(|| format!("Could not find command named '{}'", cmd_name))?;
@@ -112,11 +116,54 @@ fn command_list() -> Vec<Rc<dyn Cmd>> {
     ]
 }
 
-fn tokenize_string(s: &String) -> Vec<&str> {
-    let trimmed = s.trim();
-    let split = trimmed.split_whitespace();
-    split.collect()
+fn tokenize_string(s: &String) -> Vec<String> {
+    let mut tokens = Vec::<String>::new();
+
+    let mut escaped = false;
+    let mut cur_token: Option<String> = None;
+    let mut opened_quote: Option<char> = None;
+
+    fn add_char_to_token(ch: char, token: &mut Option<String>) {
+        match token.as_mut() {
+            Some(token_string) => token_string.push(ch),
+            None => *token = Some(String::from(ch)),
+        }
+    }
+
+    fn finalize_token(token: Option<String>, tokens: &mut Vec<String>) -> Option<String> {
+        if let Some(token_string) = token {
+            tokens.push(token_string)
+        }
+        None
+    }
+
+    for ch in s.chars() {
+        if escaped { // Escaped means we just add the character no matter what it is
+            add_char_to_token(ch, &mut cur_token);
+            escaped = false;
+        } else if let Some(quote_char) = opened_quote { // If we're in a quoted part...
+            if ch == quote_char {                       // and this is the end of the quote...
+                opened_quote = None;                    // then mark the quoted part as being over;...
+            } else {                                    // but if we're still inside the quoted part...
+                add_char_to_token(ch, &mut cur_token)   // just add the character. 
+            }
+        } else if ch == ESCAPE_CHAR { // Escape the NEXT character. 
+            escaped = true;
+        } else if QUOTE_CHARS.contains(&ch) { // Begin quoted part. 
+            opened_quote = Some(ch);
+        } else if ch.is_whitespace() {
+            cur_token = finalize_token(cur_token, &mut tokens);
+        } else { 
+            add_char_to_token(ch, &mut cur_token)
+        }
+    }
+
+    // Add whatever token we were working on when the string ended. 
+    finalize_token(cur_token, &mut tokens);
+
+    tokens
 } 
+
 
 #[cfg(test)]
 mod cli_app_tests {
@@ -137,6 +184,18 @@ mod cli_app_tests {
     }
 
     #[test]
+    fn tokenize_string_with_only_whitespace() {
+        let s = String::from("  \t \n");
+        assert_eq!(tokenize_string(&s), Vec::<&str>::new())
+    }
+    
+    #[test]
+    fn tokenize_string_with_only_escaped_whitespace() {
+        let s = String::from(" \\   ");
+        assert_eq!(tokenize_string(&s), vec![" "])
+    }
+
+    #[test]
     fn tokenize_one_token_string() {
         let s = String::from("token");
         assert_eq!(tokenize_string(&s), vec!["token"])
@@ -146,6 +205,67 @@ mod cli_app_tests {
     fn tokenize_multi_token_string() {
         let s = String::from("  this is      a\tstring\n");
         assert_eq!(tokenize_string(&s), vec!["this", "is", "a", "string"])
+    }
+
+    #[test]
+    fn tokenize_with_quote() {
+        let s = String::from("this is \"a string\" ");
+        assert_eq!(tokenize_string(&s), vec!["this", "is", "a string"])
+    }
+
+    #[test]
+    fn tokenize_with_partially_quoted_token() {
+        let s = String::from("\"this is\"a string");
+        assert_eq!(tokenize_string(&s), vec!["this isa", "string"])
+    }
+
+    #[test]
+    fn tokenize_with_two_quoted_token_parts() {
+        let s = String::from("\"this is\"' a string'");
+        assert_eq!(tokenize_string(&s), vec!["this is a string"])
+    }
+
+    #[test]
+    fn tokenize_with_single_quote() {
+        let s = String::from("this is 'a string'  ");
+        assert_eq!(tokenize_string(&s), vec!["this", "is", "a string"])
+    }
+
+
+    #[test]
+    fn tokenize_with_escape() {
+        let s = String::from(r"this is a\ string  ");
+        assert_eq!(tokenize_string(&s), vec!["this", "is", "a string"])
+    }
+
+    #[test]
+    fn tokenize_with_escape_inside_quote() {
+        let s = String::from("this is \"a\\ string\" ");
+        assert_eq!(tokenize_string(&s), vec!["this", "is", "a\\ string"])
+    }
+
+    #[test]
+    fn tokenize_with_interior_quote_mark() {
+        let s = String::from("\"tok'en\"");
+        assert_eq!(tokenize_string(&s), vec!["tok'en"])
+    }
+
+    #[test]
+    fn tokenize_with_double_escape() {
+        let s = String::from(r"tok\\en");
+        assert_eq!(tokenize_string(&s), vec![r"tok\en"])
+    }
+
+    #[test]
+    fn tokenize_with_escaped_normal_character() {
+        let s = String::from(r"tok\en");
+        assert_eq!(tokenize_string(&s), vec![r"token"])
+    }
+
+    #[test]
+    fn tokenize_with_escaped_quotes() {
+        let s = String::from("\\\"token\\\"");
+        assert_eq!(tokenize_string(&s), vec!["\"token\""])
     }
 
     struct TestCmd {
