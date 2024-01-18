@@ -3,7 +3,8 @@
 // In general, code that could apply to different types of applications (GUI. 
 // web, etc.) should go elsewhere. 
 
-use std::{io, error::Error, collections::HashMap, rc::Rc};
+use std::{io::{self, Write}, error::Error, collections::HashMap, rc::Rc};
+use colored::*;
 use application::Application;
 use cmd::{Cmd, CmdError, CmdResult};
 use ledger::Ledger;
@@ -55,6 +56,8 @@ impl CliApp {
     // This function is not easily testible, since it reads from stdin. TODO: consider refactoring this out somehow. 
     fn run(&mut self) -> Result<(), Box<dyn Error>> {
         loop {
+            CliApp::print_prompt()?;
+
             let mut raw_input = String::new();
             io::stdin().read_line(&mut raw_input)?;
 
@@ -103,6 +106,12 @@ impl CliApp {
                 Err(err) // Pass up dependency errors
             }
         }
+    }
+
+    fn print_prompt() -> Result<(), Box<dyn Error>> {
+        print!("{}", "> ".green());
+        io::stdout().flush()?;
+        Ok(())
     }
 }
 
@@ -230,7 +239,6 @@ mod cli_app_tests {
         let s = String::from("this is 'a string'  ");
         assert_eq!(tokenize_string(&s), vec!["this", "is", "a string"])
     }
-
 
     #[test]
     fn tokenize_with_escape() {
