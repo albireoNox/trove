@@ -33,6 +33,15 @@ impl Cmd for Account {
     fn names(&self) -> Vec<&'static str> {
         vec!["account", "acc", "ac"]
     }
+
+    fn help_text(&self) -> &'static str {
+"Usage: account [OPTION] ACCOUNT_NAME
+Perform operations on user accounts. 
+
+Options:
+  --new    Create a new account with ACCOUNT_NAME
+  --list   List the existing accounts"
+    }
 }
 
 impl Account {

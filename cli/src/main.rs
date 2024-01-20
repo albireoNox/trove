@@ -31,6 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 /// to dispatch to command structs. 
 struct CliApp {
     cmd_map: HashMap<&'static str, Rc<dyn Cmd>>,
+    cmd_list: Vec<Rc<dyn Cmd>>,
     ledger: Ledger,
     application: Application,
 }
@@ -48,6 +49,7 @@ impl CliApp {
 
         CliApp {
             cmd_map: cmd_map,
+            cmd_list: cmds,
             ledger: Ledger::new_empty(), // TODO: load exiting one
             application: application
         }
@@ -56,7 +58,7 @@ impl CliApp {
     // This function is not easily testible, since it reads from stdin. TODO: consider refactoring this out somehow. 
     fn run(&mut self) -> Result<(), Box<dyn Error>> {
         loop {
-            CliApp::print_prompt()?;
+            Self::print_prompt()?;
 
             let mut raw_input = String::new();
             io::stdin().read_line(&mut raw_input)?;
@@ -88,7 +90,17 @@ impl CliApp {
         let cmd_name = &tokens[0];
         let args = &tokens[1..];
 
+        if cmd_name.eq_ignore_ascii_case("help") {
+            self.print_help(args);
+            return Ok(CmdResult::Ok)
+        }
+
         let cmd = self.cmd_map.get(cmd_name).ok_or_else(|| format!("Could not find command named '{}'", cmd_name))?;
+
+        if args.get(0).is_some_and(|arg| arg.eq_ignore_ascii_case("--help")) {
+            println!("{}", cmd.help_text());
+            return Ok(CmdResult::Ok)
+        }
 
         match cmd.execute(args, &mut self.ledger, &mut self.application) {
             Ok(r) => Ok(r),
@@ -112,6 +124,35 @@ impl CliApp {
         print!("{}", "> ".green());
         io::stdout().flush()?;
         Ok(())
+    }
+
+    fn print_help(&self, args: &[&str]) {
+        match args.get(0) {
+            Some(cmd_name) => { 
+                let cmd = self.cmd_map.get(cmd_name);
+                match cmd {
+                    Some(c) => {
+                        println!("{}", c.help_text());
+                    }
+                    None => {
+                        println!("No command named '{}'", cmd_name);
+                    }
+                }
+            },
+            None => { 
+                println!("The following commands are available:\n");
+                for cmd in &self.cmd_list {
+                    print!("  {}", cmd.names()[0]);
+                    let aliases = &cmd.names()[1..];
+                    if aliases.len() > 0 {
+                        println!("  ({})", aliases.join(", "))
+                    } else {
+                        println!();
+                    }
+                }
+                println!("\n'help COMMAND' will list detailed information on a given command.");
+            }
+        }
     }
 }
 
@@ -295,6 +336,10 @@ mod cli_app_tests {
 
         fn names(&self) -> Vec<&'static str> {
             vec!["test", "t"]
+        }
+
+        fn help_text(&self) -> &'static str {
+            "TEST"
         }
     }
 

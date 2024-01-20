@@ -30,6 +30,11 @@ impl super::Cmd for Load {
     fn names(&self) -> Vec<&'static str> {
         vec!["load"]
     }
+
+    fn help_text(&self) -> &'static str {
+"Usage: load
+Loads saved data from disk."
+    }
 }
 
 #[cfg(test)]

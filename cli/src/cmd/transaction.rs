@@ -35,4 +35,10 @@ impl Cmd for Transaction {
     fn names(&self) -> Vec<&'static str> {
         return vec!["transaction", "tr"]
     }
+
+    fn help_text(&self) -> &'static str {
+"Usage: transaction ACCOUNT AMOUNT DESCRIPTION
+Creates a new transaction entry in ACCOUNT. 
+"
+    }
 }

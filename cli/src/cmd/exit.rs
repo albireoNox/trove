@@ -21,4 +21,9 @@ impl super::Cmd for Exit {
     fn names(&self) -> Vec<&'static str> {
         vec!["exit", "ex", "quit"]
     }
+
+    fn help_text(&self) -> &'static str {
+"Usage: exit
+Exits the application."
+    }
 }

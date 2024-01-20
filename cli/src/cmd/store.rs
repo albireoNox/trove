@@ -26,6 +26,11 @@ impl super::Cmd for Store {
     fn names(&self) -> Vec<&'static str> {
         vec!["store", "save"]
     }
+
+    fn help_text(&self) -> &'static str {
+"Usage: store
+Saves data to disk."
+    }
 }
 
 #[cfg(test)]

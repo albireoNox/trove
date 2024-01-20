@@ -40,4 +40,5 @@ pub trait Cmd {
     fn new() -> Self where Self: Sized;
     fn execute(&self, args: &[&str], ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError>;
     fn names(&self) -> Vec<&'static str>;
+    fn help_text(&self) -> &'static str;
 }
