@@ -14,12 +14,12 @@ impl super::Cmd for Store {
     }
 
     fn execute(&self, _args: &[&str], ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
-        println!("Saving user data...");
+        writeln!(app.out(), "Saving user data...")?;
         if let Err(e) = app.store_ledger(ledger) {
-            eprintln!("Failed to save data!");
+            writeln!(app.out(), "Failed to save data!")?;
             return Err(CmdError::Dependency(e))
         }
-        println!("Saved!");
+        writeln!(app.out(), "Saved!")?;
         Ok(CmdResult::Ok)
     }
 

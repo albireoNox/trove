@@ -17,6 +17,12 @@ pub enum CmdError {
     Dependency(Box<dyn Error>),
 }
 
+impl From<std::io::Error> for CmdError {
+    fn from(e: std::io::Error) -> Self {
+        CmdError::Dependency(Box::new(e))
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum CmdResult {
     Ok, 

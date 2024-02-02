@@ -13,8 +13,8 @@ impl super::Cmd for Exit {
         Exit{}
     }
 
-    fn execute(&self, _args: &[&str], _ledger: &mut Ledger, _app: &mut Application) -> Result<CmdResult, CmdError> {
-        println!("Exiting...");
+    fn execute(&self, _args: &[&str], _ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
+        writeln!(app.out(), "Exiting...")?;
         Ok(CmdResult::SignalTerminate)
     }
 

@@ -3,20 +3,21 @@
 // In general, code that could apply to different types of applications (GUI. 
 // web, etc.) should go elsewhere. 
 
-use std::{io::{self, Write}, error::Error, collections::HashMap, rc::Rc};
-use colored::*;
+use std::{collections::HashMap, error::Error, rc::Rc};
 use application::Application;
 use cmd::{Cmd, CmdError, CmdResult};
 use ledger::Ledger;
+use ui::TerminalInterface;
 
-mod cmd;
 mod application;
+mod cmd;
+mod ui;
 
 static ESCAPE_CHAR: char = '\\';
 static QUOTE_CHARS: [char; 2] = ['\'', '"'];
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut cli_app = CliApp::new(command_list());
+    let mut cli_app = CliApp::create(command_list())?;
     if let Err(e) = cli_app.run() {
         eprintln!("Encountered fatal error: {e}");
         eprintln!("Exiting...");
@@ -33,12 +34,14 @@ struct CliApp {
     cmd_map: HashMap<&'static str, Rc<dyn Cmd>>,
     cmd_list: Vec<Rc<dyn Cmd>>,
     ledger: Ledger,
-    application: Application,
+    app: Application,
 }
 
 impl CliApp {
-    fn new(cmds: Vec<Rc<dyn Cmd>>) -> CliApp {
-        let application = Application::new_default();
+    fn create(cmds: Vec<Rc<dyn Cmd>>) -> Result<CliApp, Box<dyn Error>> {
+        let interface = TerminalInterface::create()?;
+        
+        let application = Application::new_default(interface);
 
         let mut cmd_map = HashMap::new();
         for cmd in &cmds {
@@ -47,32 +50,38 @@ impl CliApp {
             }
         }
 
-        CliApp {
+        Ok(CliApp {
             cmd_map: cmd_map,
             cmd_list: cmds,
             ledger: Ledger::new_empty(), // TODO: load exiting one
-            application: application
-        }
+            app: application
+        })
     }
 
-    // This function is not easily testible, since it reads from stdin. TODO: consider refactoring this out somehow. 
+    // TODO: Write tests for this function
     fn run(&mut self) -> Result<(), Box<dyn Error>> {
         loop {
-            Self::print_prompt()?;
+            let event = self.app.interface().get_event();
 
-            let mut raw_input = String::new();
-            io::stdin().read_line(&mut raw_input)?;
-
-            match self.run_cmd(&raw_input) {
-                Ok(CmdResult::SignalTerminate) => { 
-                    break; 
-                }, 
-                Ok(CmdResult::Ok) => { /* Next command */ }
-                // For now all errors are recoverable
-                Err(e) => { 
-                    eprintln!("{}", e); 
+            match event {
+                ui::InputEvent::Text(s) => {
+                    match self.run_cmd(&s) {
+                        Ok(CmdResult::SignalTerminate) => { 
+                            break; 
+                        }, 
+                        Ok(CmdResult::Ok) => { /* Next command */ }
+                        // For now all errors are recoverable
+                        Err(e) => { 
+                            writeln!(self.app.out(), "{}", e)?; 
+                        },
+                    }
+                },
+                ui::InputEvent::Terminate => {
+                    break;
                 },
             }
+
+
         }
 
         Ok(())
@@ -91,23 +100,23 @@ impl CliApp {
         let args = &tokens[1..];
 
         if cmd_name.eq_ignore_ascii_case("help") {
-            self.print_help(args);
+            self.print_help(args)?;
             return Ok(CmdResult::Ok)
         }
 
         let cmd = self.cmd_map.get(cmd_name).ok_or_else(|| format!("Could not find command named '{}'", cmd_name))?;
 
         if args.get(0).is_some_and(|arg| arg.eq_ignore_ascii_case("--help")) {
-            println!("{}", cmd.help_text());
+            writeln!(self.app.out(), "{}", cmd.help_text())?;
             return Ok(CmdResult::Ok)
         }
 
-        match cmd.execute(args, &mut self.ledger, &mut self.application) {
+        match cmd.execute(args, &mut self.ledger, &mut self.app) {
             Ok(r) => Ok(r),
             Err(CmdError::Syntax(msg)) => {
                 // TODO: print usage from cmd object
-                eprint!("Syntax Error: ");
-                eprintln!("{}", msg);
+                write!(self.app.out(), "Syntax Error: ")?;
+                writeln!(self.app.out(), "{}", msg)?;
                 // We handled the error, now we can return OK
                 Ok(CmdResult::Ok)
             },
@@ -120,39 +129,35 @@ impl CliApp {
         }
     }
 
-    fn print_prompt() -> Result<(), Box<dyn Error>> {
-        print!("{}", "> ".green());
-        io::stdout().flush()?;
-        Ok(())
-    }
-
-    fn print_help(&self, args: &[&str]) {
+    fn print_help(&mut self, args: &[&str]) -> Result<(), Box<dyn Error>> {
         match args.get(0) {
             Some(cmd_name) => { 
                 let cmd = self.cmd_map.get(cmd_name);
                 match cmd {
                     Some(c) => {
-                        println!("{}", c.help_text());
+                        writeln!(self.app.out(), "{}", c.help_text())?;
                     }
                     None => {
-                        println!("No command named '{}'", cmd_name);
+                        writeln!(self.app.out(), "No command named '{}'", cmd_name)?;
                     }
                 }
             },
             None => { 
-                println!("The following commands are available:\n");
+                writeln!(self.app.out(), "The following commands are available:\n")?;
                 for cmd in &self.cmd_list {
-                    print!("  {}", cmd.names()[0]);
+                    write!(self.app.out(), "  {}", cmd.names()[0])?;
                     let aliases = &cmd.names()[1..];
                     if aliases.len() > 0 {
-                        println!("  ({})", aliases.join(", "))
+                        writeln!(self.app.out(), "  ({})", aliases.join(", "))?;
                     } else {
-                        println!();
+                        writeln!(self.app.out(), "")?;
                     }
                 }
-                println!("\n'help COMMAND' will list detailed information on a given command.");
+                writeln!(self.app.out(), "\n'help COMMAND' will list detailed information on a given command.")?;
             }
         }
+
+        Ok(())
     }
 }
 
@@ -224,7 +229,7 @@ mod cli_app_tests {
 
     #[test]
     fn create() {
-        let _ = CliApp::new(vec![]);
+        let _ = CliApp::create(vec![]);
     }
 
     #[test]
@@ -347,7 +352,7 @@ mod cli_app_tests {
     fn test_cmd_dispatch_with_args() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut app = CliApp::new(cmds);
+        let mut app = CliApp::create(cmds).unwrap();
 
         assert!(app.run_cmd(&String::from("test arg1 arg2")).is_ok());
         assert_eq!(*cmd.last_called_args.borrow(), vec!["arg1", "arg2"]);
@@ -358,7 +363,7 @@ mod cli_app_tests {
     fn test_cmd_dispatch_no_args() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut app = CliApp::new(cmds);
+        let mut app = CliApp::create(cmds).unwrap();
 
         assert!(app.run_cmd(&String::from("test")).is_ok());
         assert_eq!(cmd.last_called_args.borrow().len(), 0);
@@ -369,7 +374,7 @@ mod cli_app_tests {
     fn test_cmd_invalid_cmd() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut app = CliApp::new(cmds);
+        let mut app = CliApp::create(cmds).unwrap();
 
         assert!(app.run_cmd(&String::from("INVALID arg1 arg2")).is_err());
         assert_eq!(*cmd.call_count.borrow(), 0);

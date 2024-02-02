@@ -14,7 +14,7 @@ impl super::Cmd for Load {
     }
 
     fn execute(&self, _args: &[&str], ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
-        println!("Loading user data...");
+        writeln!(app.out(), "Loading user data...")?;
         match app.load_ledger() {
             Ok(new_ledger) => {
                 *ledger = new_ledger
@@ -23,7 +23,7 @@ impl super::Cmd for Load {
                 return Err(CmdError::Dependency(e))
             },
         }
-        println!("Loaded!");
+        writeln!(app.out(), "Loaded!")?;
         Ok(CmdResult::Ok)
     }
 

@@ -6,19 +6,21 @@ use std::error::Error;
 use ledger::Ledger;
 use store::FileStore;
 
+use crate::ui::TerminalInterface;
+
 #[cfg_attr(test, faux::create)]
 pub struct Application {
-    file_store: FileStore
+    file_store: FileStore,
+    interface: TerminalInterface,
 }
 
 #[cfg_attr(test, faux::methods)]
 impl Application {
-    pub fn new_default() -> Application {
+    pub fn new_default(interface: TerminalInterface) -> Application {
         let exe_path = std::env::current_exe().expect("Failed to get path to exe");
         let exe_dir = exe_path.parent().expect("Could not get exe directory");
-        println!("Running in directory: {}", exe_dir.to_str().expect("AH"));
         let file_store = FileStore::new(exe_dir);
-        Application { file_store }
+        Application { file_store, interface }
     }
 
     pub fn store_ledger(&self, ledger: &Ledger) -> Result<(), Box<dyn Error>> {
@@ -27,5 +29,13 @@ impl Application {
 
     pub fn load_ledger(&self) -> Result<Ledger, Box<dyn Error>> {
         self.file_store.load_ledger()   
+    }
+
+    pub fn out(&mut self) -> &mut dyn std::io::Write {
+        &mut self.interface
+    }
+
+    pub fn interface(&mut self) -> &mut TerminalInterface {
+        &mut self.interface
     }
 }

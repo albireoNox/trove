@@ -11,6 +11,7 @@ ledger = { path = "../ledger" }
 
 chrono = { workspace = true }
 colored = { workspace = true }
+termion = { workspace = true }
 
 [dev-dependencies]
 faux = { workspace = true }
