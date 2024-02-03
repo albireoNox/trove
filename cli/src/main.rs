@@ -17,7 +17,10 @@ static ESCAPE_CHAR: char = '\\';
 static QUOTE_CHARS: [char; 2] = ['\'', '"'];
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut cli_app = CliApp::create(command_list())?;
+    let interface = TerminalInterface::create()?;
+    let application = Application::new_default(interface);
+    let mut cli_app = CliApp::create(command_list(), application)?;
+
     if let Err(e) = cli_app.run() {
         eprintln!("Encountered fatal error: {e}");
         eprintln!("Exiting...");
@@ -38,11 +41,7 @@ struct CliApp {
 }
 
 impl CliApp {
-    fn create(cmds: Vec<Rc<dyn Cmd>>) -> Result<CliApp, Box<dyn Error>> {
-        let interface = TerminalInterface::create()?;
-        
-        let application = Application::new_default(interface);
-
+    fn create(cmds: Vec<Rc<dyn Cmd>>, app: Application) -> Result<CliApp, Box<dyn Error>> {
         let mut cmd_map = HashMap::new();
         for cmd in &cmds {
             for name in cmd.names() {
@@ -54,7 +53,7 @@ impl CliApp {
             cmd_map: cmd_map,
             cmd_list: cmds,
             ledger: Ledger::new_empty(), // TODO: load exiting one
-            app: application
+            app,
         })
     }
 
@@ -229,7 +228,7 @@ mod cli_app_tests {
 
     #[test]
     fn create() {
-        let _ = CliApp::create(vec![]);
+        let _ = CliApp::create(vec![], Application::faux());
     }
 
     #[test]
@@ -352,7 +351,7 @@ mod cli_app_tests {
     fn test_cmd_dispatch_with_args() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut app = CliApp::create(cmds).unwrap();
+        let mut app = CliApp::create(cmds, Application::faux()).unwrap();
 
         assert!(app.run_cmd(&String::from("test arg1 arg2")).is_ok());
         assert_eq!(*cmd.last_called_args.borrow(), vec!["arg1", "arg2"]);
@@ -363,7 +362,7 @@ mod cli_app_tests {
     fn test_cmd_dispatch_no_args() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut app = CliApp::create(cmds).unwrap();
+        let mut app = CliApp::create(cmds, Application::faux()).unwrap();
 
         assert!(app.run_cmd(&String::from("test")).is_ok());
         assert_eq!(cmd.last_called_args.borrow().len(), 0);
@@ -374,7 +373,7 @@ mod cli_app_tests {
     fn test_cmd_invalid_cmd() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut app = CliApp::create(cmds).unwrap();
+        let mut app = CliApp::create(cmds, Application::faux()).unwrap();
 
         assert!(app.run_cmd(&String::from("INVALID arg1 arg2")).is_err());
         assert_eq!(*cmd.call_count.borrow(), 0);

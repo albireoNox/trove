@@ -44,6 +44,8 @@ mod tests {
 
     use super::*;
 
+    static mut TEST_OUTPUT: Vec<u8> = Vec::new();
+
     #[test]
     fn execute_load_cmd() {
         let mut application_mock = Application::faux();
@@ -56,9 +58,16 @@ mod tests {
             Ok(test_ledger)
         });
 
+        unsafe {
+            faux::when!(
+                application_mock.out(_)
+            ).then_unchecked(|_| &mut TEST_OUTPUT); 
+        }
+
         let load_cmd = Load::new();
         let mut actual_ledger = Ledger::new_empty();
         assert!(load_cmd.execute(&vec![], &mut actual_ledger, &mut application_mock).is_ok());
-        assert!(actual_ledger.get_account_by_name_mut(&String::from("test_account")).is_some())
+        assert!(actual_ledger.get_account_by_name_mut(&String::from("test_account")).is_some());
+        unsafe { assert!(TEST_OUTPUT.len() > 0); }
     }
 }
