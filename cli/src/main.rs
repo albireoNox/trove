@@ -50,7 +50,7 @@ impl CliRunner {
         }
 
         Ok(CliRunner {
-            cmd_map: cmd_map,
+            cmd_map,
             cmd_list: cmds,
             ledger: Ledger::new_empty(), // TODO: load exiting one
             app,
@@ -79,18 +79,16 @@ impl CliRunner {
                     break;
                 },
             }
-
-
         }
 
         Ok(())
     }
 
-    fn run_cmd(&mut self, raw_input: &String) -> Result<CmdResult, Box<dyn Error>> {
+    fn run_cmd(&mut self, raw_input: &str) -> Result<CmdResult, Box<dyn Error>> {
         let tokens_owned = tokenize_string(raw_input);
         let tokens: Vec<&str> = tokens_owned.iter().map(|s| s.as_str()).collect();
 
-        if tokens.len() == 0 {
+        if tokens.is_empty() {
             // No need to create error, just move on
             return Ok(CmdResult::Ok);
         }
@@ -105,7 +103,7 @@ impl CliRunner {
 
         let cmd = self.cmd_map.get(cmd_name).ok_or_else(|| format!("Could not find command named '{}'", cmd_name))?;
 
-        if args.get(0).is_some_and(|arg| arg.eq_ignore_ascii_case("--help")) {
+        if args.first().is_some_and(|arg| arg.eq_ignore_ascii_case("--help")) {
             writeln!(self.app.out(), "{}", cmd.help_text())?;
             return Ok(CmdResult::Ok)
         }
@@ -129,7 +127,7 @@ impl CliRunner {
     }
 
     fn print_help(&mut self, args: &[&str]) -> Result<(), Box<dyn Error>> {
-        match args.get(0) {
+        match args.first() {
             Some(cmd_name) => { 
                 let cmd = self.cmd_map.get(cmd_name);
                 match cmd {
@@ -146,10 +144,10 @@ impl CliRunner {
                 for cmd in &self.cmd_list {
                     write!(self.app.out(), "  {}", cmd.names()[0])?;
                     let aliases = &cmd.names()[1..];
-                    if aliases.len() > 0 {
+                    if !aliases.is_empty() {
                         writeln!(self.app.out(), "  ({})", aliases.join(", "))?;
                     } else {
-                        writeln!(self.app.out(), "")?;
+                        writeln!(self.app.out())?;
                     }
                 }
                 writeln!(self.app.out(), "\n'help COMMAND' will list detailed information on a given command.")?;
@@ -170,7 +168,7 @@ fn command_list() -> Vec<Rc<dyn Cmd>> {
     ]
 }
 
-fn tokenize_string(s: &String) -> Vec<String> {
+fn tokenize_string(s: &str) -> Vec<String> {
     let mut tokens = Vec::<String>::new();
 
     let mut escaped = false;

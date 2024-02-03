@@ -27,14 +27,8 @@ impl Ledger {
         &self.accounts
     }
 
-    pub fn get_account_by_name_mut(&mut self, name: &String) -> Option<&mut Account> {
-        for account in self.accounts.iter_mut() {
-            if account.get_name().eq_ignore_ascii_case(name) {
-                return Some(account);
-            }
-        }
-
-        return None
+    pub fn get_account_by_name_mut(&mut self, name: &str) -> Option<&mut Account> {
+        self.accounts.iter_mut().find(|a| a.get_name().eq_ignore_ascii_case(name))
     }
 }
 

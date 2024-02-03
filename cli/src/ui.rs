@@ -69,7 +69,7 @@ impl TerminalInterface {
 impl Write for TerminalInterface {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let s = String::from_utf8_lossy(buf);
-        stdout().write(s.replace("\n", "\n\r").as_bytes())?;
+        stdout().write_all(s.replace('\n', "\n\r").as_bytes())?;
         Ok(buf.len())
     }
 

@@ -14,7 +14,7 @@ impl Cmd for Account {
     }
 
     fn execute(&self, args: &[&str], ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
-        match args.get(0) {
+        match args.first() {
             Some(&"--new") => {
                 self.add_new_account(&args[1..], ledger, app)
             },
@@ -47,7 +47,7 @@ Options:
 impl Account {
 
     fn add_new_account(&self, args: &[&str], ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
-        let name = args.get(0).ok_or(
+        let name = args.first().ok_or(
             CmdError::Syntax("Adding a new account requires an name".to_string()))?;
 
         ledger.add_new_account(String::from(*name));

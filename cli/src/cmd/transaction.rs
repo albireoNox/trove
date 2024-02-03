@@ -33,7 +33,7 @@ impl Cmd for Transaction {
     }
 
     fn names(&self) -> Vec<&'static str> {
-        return vec!["transaction", "tr"]
+        vec!["transaction", "tr"]
     }
 
     fn help_text(&self) -> &'static str {
