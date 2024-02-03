@@ -1,6 +1,6 @@
 use ledger::Ledger;
 
-use crate::{cmd::CmdResult, application::Application};
+use crate::{cmd::CmdResult, app::Application};
 
 use super::CmdError;
 

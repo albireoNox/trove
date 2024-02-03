@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use ledger::{common_types::Money, account::Account};
 
-use crate::application::Application;
+use crate::app::Application;
 
 use super::{Cmd, CmdError, CmdResult};
 

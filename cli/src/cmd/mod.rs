@@ -2,7 +2,7 @@
 use std::{fmt::Display, error::Error};
 
 use ledger::Ledger;
-use super::application::Application;
+use super::app::Application;
 
 pub mod account;
 pub mod exit;
