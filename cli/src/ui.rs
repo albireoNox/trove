@@ -3,16 +3,20 @@ use std::io::{stdin, stdout, Stdout, Write};
 use colored::Colorize;
 use termion::{event::Key, input::TermRead, raw::{IntoRawMode, RawTerminal}};
 
+pub enum InputEvent {
+    Text(String), 
+    ArrowUp, 
+    ArrowDown,
+    Interrupt,
+}
+
+#[cfg_attr(test, faux::create)]
 pub struct TerminalInterface {
     input_buffer: String,
     _terminal: RawTerminal<Stdout>, // This is saved so the original terminal state can be restored on drop. 
 }
 
-pub enum InputEvent {
-    Text(String), 
-    Terminate,
-}
-
+#[cfg_attr(test, faux::methods)]
 impl TerminalInterface {
     pub fn create() -> std::io::Result<TerminalInterface> {
         let raw_terminal = stdout().into_raw_mode()?;
@@ -30,20 +34,15 @@ impl TerminalInterface {
 
         // listen for key events
         loop {
-
-            // update the current line with the state of the buffer
-            print!("{}\r{}{}", 
-                termion::clear::CurrentLine,
-                "> ".green(), 
-                self.input_buffer);
-            stdout().flush().unwrap();
+            self.display_input_buffer();
 
             let next_key = keys.next();
 
             if let Some(key) = next_key {
                 match key.unwrap() {
                     Key::Char('\n') => {
-                        let event = InputEvent::Text(self.input_buffer.clone());
+                        let text = self.input_buffer.trim().to_string();
+                        let event = InputEvent::Text(text);
                         self.input_buffer.clear();
                         print!("\n\r");
                         return event;
@@ -54,15 +53,35 @@ impl TerminalInterface {
                     Key::Backspace => {
                         self.input_buffer.pop();
                     },
+                    Key::Up => {
+                        return InputEvent::ArrowUp;
+                    }, 
+                    Key::Down => {
+                        return InputEvent::ArrowDown;
+                    }
                     Key::Ctrl('c') => {
-                        return InputEvent::Terminate;
+                        return InputEvent::Interrupt;
                     },
                     _ => {}
                 }
             } else { // we've reached the end of the keys, probably because we're shutting down
-                return InputEvent::Terminate;
+                return InputEvent::Interrupt;
             }
         }
+    }
+
+    fn display_input_buffer(&self) {
+        print!("{}\r{}{}", 
+            termion::clear::CurrentLine,
+            "> ".green(), 
+            self.input_buffer);
+        stdout().flush().unwrap();
+    }
+
+    pub fn set_input_buffer(&mut self, s: String) {
+        self.input_buffer = s;
+
+        self.display_input_buffer();
     }
 }
 

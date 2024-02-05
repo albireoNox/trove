@@ -3,7 +3,7 @@
 // In general, code that could apply to different types of applications (GUI. 
 // web, etc.) should go elsewhere. 
 
-use std::{collections::HashMap, error::Error, rc::Rc};
+use std::{collections::{HashMap, VecDeque}, error::Error, rc::Rc};
 use app::Application;
 use cmd::{Cmd, CmdError, CmdResult};
 use ledger::Ledger;
@@ -13,8 +13,9 @@ mod app;
 mod cmd;
 mod ui;
 
-static ESCAPE_CHAR: char = '\\';
-static QUOTE_CHARS: [char; 2] = ['\'', '"'];
+const ESCAPE_CHAR: char = '\\';
+const QUOTE_CHARS: [char; 2] = ['\'', '"'];
+const MAX_HISTORY_LENGTH: usize = 100;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let interface = TerminalInterface::create()?;
@@ -38,6 +39,11 @@ struct CliRunner {
     cmd_list: Vec<Rc<dyn Cmd>>,
     ledger: Ledger,
     app: Application,
+
+    // Most recent history entry is at index 0. This might be more efficient as a linked-list, 
+    // but maybe not. The gains from not having to shift elements may be less than what we get
+    // from the memory locality of an array-based list. 
+    input_history: VecDeque<String>, 
 }
 
 impl CliRunner {
@@ -54,34 +60,79 @@ impl CliRunner {
             cmd_list: cmds,
             ledger: Ledger::new_empty(), // TODO: load exiting one
             app,
+            input_history: VecDeque::new(),
         })
     }
 
     // TODO: Write tests for this function
     fn run(&mut self) -> Result<(), Box<dyn Error>> {
+
         loop {
             let event = self.app.interface().get_event();
-
-            match event {
-                ui::InputEvent::Text(s) => {
-                    match self.run_cmd(&s) {
-                        Ok(CmdResult::SignalTerminate) => { 
-                            break; 
-                        }, 
-                        Ok(CmdResult::Ok) => { /* Next command */ }
-                        // For now all errors are recoverable
-                        Err(e) => { 
-                            writeln!(self.app.out(), "{}", e)?; 
-                        },
-                    }
-                },
-                ui::InputEvent::Terminate => {
-                    break;
-                },
+            
+            match self.handle_input_event(event) {
+                Ok(false) => break,
+                Ok(true) => continue,
+                Err(e) => {
+                    // For now all errors are recoverable
+                    writeln!(self.app.out(), "{}", e)?; 
+                }
             }
         }
 
         Ok(())
+    }
+
+    /// Return Ok(true) if we should keep listing for events, and Ok(false) if we should terminate
+    fn handle_input_event(&mut self, event: ui::InputEvent) -> Result<bool, Box<dyn Error>> {
+        match event {
+            ui::InputEvent::Text(s) => {
+                let result = match self.run_cmd(&s) { 
+                    Ok(CmdResult::SignalTerminate) => Ok(false),
+                    Ok(CmdResult::Ok) => Ok(true), 
+                    Err(e) => Err(e)
+                };
+                self.add_input_to_history(s);
+                result
+            },
+            ui::InputEvent::ArrowUp => self.page_history(),
+            ui::InputEvent::ArrowDown => self.page_history(),
+            ui::InputEvent::Interrupt => Ok(false),
+        }
+    }
+
+    fn page_history(&mut self) -> Result<bool, Box<dyn Error>> {
+        // If there's no history then there's nothing to do here. 
+        if self.input_history.is_empty() {
+            return Ok(true)
+        }
+
+        // Cycle through the history until we get a different kind of event. 
+        let mut history_index = 0;
+        loop {
+            self.app.interface().set_input_buffer(self.input_history[history_index].clone());
+
+            let next_event = self.app.interface().get_event();
+            match next_event {
+                ui::InputEvent::ArrowUp => {
+                    history_index = (history_index + 1) % self.input_history.len();
+                },
+                ui::InputEvent::ArrowDown => {
+                    history_index = (history_index + self.input_history.len() - 1) % self.input_history.len();
+                },
+                _ => return self.handle_input_event(next_event)
+            }
+        }
+    }
+
+    fn add_input_to_history(&mut self, input: String) {
+        // Dedup the history entries
+        self.input_history.retain(|s| !s.eq_ignore_ascii_case(&input));
+        self.input_history.push_front(input);
+
+        if self.input_history.len() > MAX_HISTORY_LENGTH {
+            self.input_history.pop_back(); // Remove oldest entry
+        }
     }
 
     fn run_cmd(&mut self, raw_input: &str) -> Result<CmdResult, Box<dyn Error>> {
@@ -216,11 +267,10 @@ fn tokenize_string(s: &str) -> Vec<String> {
     tokens
 } 
 
-
 #[cfg(test)]
 mod cli_app_tests {
 
-    use std::cell::RefCell;
+    use std::{cell::{OnceCell, RefCell}, sync::{Arc, Mutex}};
 
     use super::*;
 
@@ -349,9 +399,9 @@ mod cli_app_tests {
     fn test_cmd_dispatch_with_args() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut app = CliRunner::create(cmds, Application::faux()).unwrap();
+        let mut runner = CliRunner::create(cmds, Application::faux()).unwrap();
 
-        assert!(app.run_cmd(&String::from("test arg1 arg2")).is_ok());
+        assert!(runner.run_cmd(&String::from("test arg1 arg2")).is_ok());
         assert_eq!(*cmd.last_called_args.borrow(), vec!["arg1", "arg2"]);
         assert_eq!(*cmd.call_count.borrow(), 1);
     }
@@ -360,9 +410,9 @@ mod cli_app_tests {
     fn test_cmd_dispatch_no_args() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut app = CliRunner::create(cmds, Application::faux()).unwrap();
+        let mut runner = CliRunner::create(cmds, Application::faux()).unwrap();
 
-        assert!(app.run_cmd(&String::from("test")).is_ok());
+        assert!(runner.run_cmd(&String::from("test")).is_ok());
         assert_eq!(cmd.last_called_args.borrow().len(), 0);
         assert_eq!(*cmd.call_count.borrow(), 1);
     }
@@ -371,10 +421,84 @@ mod cli_app_tests {
     fn test_cmd_invalid_cmd() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut app = CliRunner::create(cmds, Application::faux()).unwrap();
+        let mut runner = CliRunner::create(cmds, Application::faux()).unwrap();
 
-        assert!(app.run_cmd(&String::from("INVALID arg1 arg2")).is_err());
+        assert!(runner.run_cmd(&String::from("INVALID arg1 arg2")).is_err());
         assert_eq!(*cmd.call_count.borrow(), 0);
     }
 
+    #[test]
+    fn test_add_input_to_history_dedup() {
+        let mut runner = CliRunner::create(vec![], Application::faux()).unwrap();
+
+        runner.add_input_to_history("cmd1".to_string());
+        runner.add_input_to_history("cmd2".to_string());
+        runner.add_input_to_history("cmd3".to_string());
+        runner.add_input_to_history("cmd2".to_string());
+
+        assert_eq!(runner.input_history, vec!["cmd2", "cmd3", "cmd1"])
+    }
+
+    #[test]
+    fn test_add_input_to_history_over_max() {
+        let mut runner = CliRunner::create(vec![], Application::faux()).unwrap();
+
+        for i in 0..=MAX_HISTORY_LENGTH+1 {
+            runner.add_input_to_history(format!("cmd{}", i));
+        }
+
+        assert_eq!(runner.input_history.len(), MAX_HISTORY_LENGTH);
+        assert_eq!(runner.input_history.front().unwrap(), "cmd101");
+        assert_eq!(runner.input_history.back().unwrap(), "cmd2");
+    }
+
+    // This test is bananas. TODO: Find a mocking library that doesn't require this madness. Or refactor things. 
+    #[test]
+    fn test_command_history() {
+        unsafe {
+
+        let mut events = VecDeque::from(vec![
+            ui::InputEvent::Text("cmd1".to_string()),
+            ui::InputEvent::Text("cmd2".to_string()),
+            ui::InputEvent::Text("cmd3".to_string()),
+            ui::InputEvent::ArrowUp,
+            ui::InputEvent::ArrowUp,
+            ui::InputEvent::ArrowUp,
+            ui::InputEvent::ArrowDown,
+            ui::InputEvent::Interrupt,
+        ]);
+
+        let expected_cmd_history = Arc::new(Mutex::new(VecDeque::from(vec![
+            "cmd3", "cmd2", "cmd1", "cmd2"
+        ])));
+
+        let mut app = Application::faux();
+        let mut interface = TerminalInterface::faux();
+
+        let copy = expected_cmd_history.clone();
+        faux::when!(interface.set_input_buffer).then(move |s| 
+            assert_eq!(s, copy.lock().unwrap().pop_front().unwrap()));
+
+        faux::when!(interface.get_event()).then_unchecked(|_| events.pop_front().unwrap());
+
+        static mut CELL: OnceCell<TerminalInterface> = OnceCell::new();
+        CELL.set(interface).unwrap();
+        faux::when!(app.interface()).then_unchecked(|_| CELL.get_mut().unwrap());
+
+        let test_out = Vec::<u8>::new();
+        static mut OUT_CELL: OnceCell<Vec<u8>> = OnceCell::new();
+        OUT_CELL.set(test_out).unwrap();
+        faux::when!(app.out).then_unchecked(|_| OUT_CELL.get_mut().unwrap());
+
+        CliRunner::create(Vec::new(), app).unwrap().run().unwrap();
+        assert!(expected_cmd_history.lock().unwrap().is_empty())
+        }
+    }
+
+    // This needs to be here for silly reasons. 
+    impl std::fmt::Debug for TerminalInterface {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "this doesn't matter")
+        }
+    }
 }
