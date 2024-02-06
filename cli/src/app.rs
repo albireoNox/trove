@@ -16,10 +16,7 @@ pub struct Application {
 
 #[cfg_attr(test, faux::methods)]
 impl Application {
-    pub fn new_default(interface: TerminalInterface) -> Application {
-        let exe_path = std::env::current_exe().expect("Failed to get path to exe");
-        let exe_dir = exe_path.parent().expect("Could not get exe directory");
-        let file_store = FileStore::new(exe_dir);
+    pub fn new(interface: TerminalInterface, file_store: FileStore) -> Application {
         Application { file_store, interface }
     }
 

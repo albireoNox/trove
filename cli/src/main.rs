@@ -3,10 +3,11 @@
 // In general, code that could apply to different types of applications (GUI. 
 // web, etc.) should go elsewhere. 
 
-use std::{collections::{HashMap, VecDeque}, error::Error, rc::Rc};
+use std::{collections::{HashMap, VecDeque}, error::Error, path::PathBuf, rc::Rc};
 use app::Application;
 use cmd::{Cmd, CmdError, CmdResult};
 use ledger::Ledger;
+use store::FileStore;
 use ui::TerminalInterface;
 
 mod app;
@@ -19,7 +20,8 @@ const MAX_HISTORY_LENGTH: usize = 100;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let interface = TerminalInterface::create()?;
-    let application = Application::new_default(interface);
+    let file_store = FileStore::new(&default_file_store_location());
+    let application = Application::new(interface, file_store);
     let mut cli_app = CliRunner::create(command_list(), application)?;
 
     if let Err(e) = cli_app.run() {
@@ -31,6 +33,22 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+fn command_list() -> Vec<Rc<dyn Cmd>> {
+    vec![
+        Rc::new(cmd::account::Account::new()),
+        Rc::new(cmd::exit::Exit::new()),
+        Rc::new(cmd::load::Load::new()),
+        Rc::new(cmd::store::Store::new()),
+        Rc::new(cmd::transaction::Transaction::new()),
+    ]
+}
+
+pub fn default_file_store_location() -> PathBuf {
+    let exe_path = std::env::current_exe().expect("Failed to get path to exe");
+    exe_path.parent().expect("Could not get exe directory").to_owned()
+}
+
 
 /// State used by the CLI application. Manages the top-level REPL loop and parses input
 /// to dispatch to command structs. 
@@ -207,16 +225,6 @@ impl CliRunner {
 
         Ok(())
     }
-}
-
-fn command_list() -> Vec<Rc<dyn Cmd>> {
-    vec![
-        Rc::new(cmd::account::Account::new()),
-        Rc::new(cmd::exit::Exit::new()),
-        Rc::new(cmd::load::Load::new()),
-        Rc::new(cmd::store::Store::new()),
-        Rc::new(cmd::transaction::Transaction::new()),
-    ]
 }
 
 fn tokenize_string(s: &str) -> Vec<String> {
