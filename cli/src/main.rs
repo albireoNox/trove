@@ -475,20 +475,25 @@ mod cli_app_tests {
         let mut app = Application::faux();
         let mut interface = TerminalInterface::faux();
 
-        let copy = expected_cmd_history.clone();
-        faux::when!(interface.set_input_buffer).then(move |s| 
-            assert_eq!(s, copy.lock().unwrap().pop_front().unwrap()));
+        faux::when!(interface.set_input_buffer).then({
+            let copy = expected_cmd_history.clone();
+            move |s| assert_eq!(s, copy.lock().unwrap().pop_front().unwrap())});
 
-        faux::when!(interface.get_event()).then_unchecked(|_| events.pop_front().unwrap());
-
-        static mut CELL: OnceCell<TerminalInterface> = OnceCell::new();
-        CELL.set(interface).unwrap();
-        faux::when!(app.interface()).then_unchecked(|_| CELL.get_mut().unwrap());
+        faux::when!(interface.get_event()).then_unchecked(
+            |_| events.pop_front().unwrap());
+        
+        faux::when!(app.interface()).then_unchecked({
+            static mut CELL: OnceCell<TerminalInterface> = OnceCell::new();
+            CELL.set(interface).unwrap();
+            |_| CELL.get_mut().unwrap()});
 
         let test_out = Vec::<u8>::new();
-        static mut OUT_CELL: OnceCell<Vec<u8>> = OnceCell::new();
-        OUT_CELL.set(test_out).unwrap();
-        faux::when!(app.out).then_unchecked(|_| OUT_CELL.get_mut().unwrap());
+
+        faux::when!(app.out).then_unchecked( {
+            static mut CELL: OnceCell<Vec<u8>> = OnceCell::new();
+            CELL.set(test_out).unwrap();
+            |_| CELL.get_mut().unwrap()}
+        );
 
         CliRunner::create(Vec::new(), app).unwrap().run().unwrap();
         assert!(expected_cmd_history.lock().unwrap().is_empty())
