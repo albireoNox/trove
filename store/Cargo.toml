@@ -10,3 +10,6 @@ ledger = { path = "../ledger" }
 
 ciborium = { workspace = true }
 serde = { workspace = true }
+
+[dev-dependencies]
+mockall = { workspace = true }

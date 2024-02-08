@@ -1,22 +1,29 @@
-//! Represents functionality and data associated with application itself (i.e. not user data). For example, file operations, 
-//! os interaction, interaction state, etc. 
+//! Overall container for data associated with the application itself (i.e. not user data). For example, file operations, 
+//! os interaction, etc. 
+
+/// Ideally this is just a bundle of owned structs which serve to actually manage the concerns listed above. 
+/// For the sake of testing, this should not perform any "untestible" os operations directly. Rather, 
+/// the sub-structs can be mocked as needed and passed in. 
 
 use std::error::Error;
 
 use ledger::Ledger;
+
+#[cfg(test)]
+pub use crate::test::store;
+#[mockall_double::double]
 use store::FileStore;
 
+#[mockall_double::double]
 use crate::ui::TerminalInterface;
 
-#[cfg_attr(test, faux::create)]
 pub struct Application {
     file_store: FileStore,
     interface: TerminalInterface,
 }
 
-#[cfg_attr(test, faux::methods)]
 impl Application {
-    pub fn new(interface: TerminalInterface, file_store: FileStore) -> Application {
+    pub fn new(interface: TerminalInterface, file_store: FileStore) -> Self {
         Application { file_store, interface }
     }
 

@@ -3,16 +3,22 @@
 // In general, code that could apply to different types of applications (GUI. 
 // web, etc.) should go elsewhere. 
 
+mod app;
+mod cmd;
+mod test;
+mod ui;
+
 use std::{collections::{HashMap, VecDeque}, error::Error, path::PathBuf, rc::Rc};
+
 use app::Application;
 use cmd::{Cmd, CmdError, CmdResult};
 use ledger::Ledger;
+#[mockall_double::double]
 use store::FileStore;
+#[cfg(test)]
+pub use test::store;
+#[mockall_double::double]
 use ui::TerminalInterface;
-
-mod app;
-mod cmd;
-mod ui;
 
 const ESCAPE_CHAR: char = '\\';
 const QUOTE_CHARS: [char; 2] = ['\'', '"'];
@@ -278,13 +284,21 @@ fn tokenize_string(s: &str) -> Vec<String> {
 #[cfg(test)]
 mod cli_app_tests {
 
-    use std::{cell::{OnceCell, RefCell}, sync::{Arc, Mutex}};
+    use std::cell::RefCell;
+    
+    use mockall::{Sequence, predicate::eq};
 
     use super::*;
 
+    fn create_test_app(interface: TerminalInterface) -> Application {
+        Application::new(
+            interface, 
+            store::MockFileStore::default()) 
+    }
+
     #[test]
     fn create() {
-        let _ = CliRunner::create(vec![], Application::faux());
+        let _ = CliRunner::create(vec![], create_test_app(TerminalInterface::new()));
     }
 
     #[test]
@@ -407,7 +421,7 @@ mod cli_app_tests {
     fn test_cmd_dispatch_with_args() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut runner = CliRunner::create(cmds, Application::faux()).unwrap();
+        let mut runner = CliRunner::create(cmds, create_test_app(TerminalInterface::new())).unwrap();
 
         assert!(runner.run_cmd(&String::from("test arg1 arg2")).is_ok());
         assert_eq!(*cmd.last_called_args.borrow(), vec!["arg1", "arg2"]);
@@ -418,7 +432,7 @@ mod cli_app_tests {
     fn test_cmd_dispatch_no_args() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut runner = CliRunner::create(cmds, Application::faux()).unwrap();
+        let mut runner = CliRunner::create(cmds, create_test_app(TerminalInterface::new())).unwrap();
 
         assert!(runner.run_cmd(&String::from("test")).is_ok());
         assert_eq!(cmd.last_called_args.borrow().len(), 0);
@@ -429,7 +443,7 @@ mod cli_app_tests {
     fn test_cmd_invalid_cmd() {
         let cmd = Rc::new(TestCmd::new());
         let cmds: Vec<Rc<dyn Cmd>> = vec![cmd.clone()];
-        let mut runner = CliRunner::create(cmds, Application::faux()).unwrap();
+        let mut runner = CliRunner::create(cmds, create_test_app(TerminalInterface::new())).unwrap();
 
         assert!(runner.run_cmd(&String::from("INVALID arg1 arg2")).is_err());
         assert_eq!(*cmd.call_count.borrow(), 0);
@@ -437,7 +451,7 @@ mod cli_app_tests {
 
     #[test]
     fn test_add_input_to_history_dedup() {
-        let mut runner = CliRunner::create(vec![], Application::faux()).unwrap();
+        let mut runner = CliRunner::create(vec![], create_test_app(TerminalInterface::new())).unwrap();
 
         runner.add_input_to_history("cmd1".to_string());
         runner.add_input_to_history("cmd2".to_string());
@@ -449,7 +463,7 @@ mod cli_app_tests {
 
     #[test]
     fn test_add_input_to_history_over_max() {
-        let mut runner = CliRunner::create(vec![], Application::faux()).unwrap();
+        let mut runner = CliRunner::create(vec![], create_test_app(TerminalInterface::new())).unwrap();
 
         for i in 0..=MAX_HISTORY_LENGTH+1 {
             runner.add_input_to_history(format!("cmd{}", i));
@@ -460,58 +474,85 @@ mod cli_app_tests {
         assert_eq!(runner.input_history.back().unwrap(), "cmd2");
     }
 
-    // This test is bananas. TODO: Find a mocking library that doesn't require this madness. Or refactor things. 
-    #[test]
-    fn test_command_history() {
-        unsafe {
+    fn do_command_history_test(test_plan: Vec<(ui::InputEvent, Option<&str>)>) {
+        let mut interface = TerminalInterface::new();
+        interface.expect_write().returning(|s| Ok(s.len()));
 
-        let mut events = VecDeque::from(vec![
-            ui::InputEvent::Text("cmd1".to_string()),
-            ui::InputEvent::Text("cmd2".to_string()),
-            ui::InputEvent::Text("cmd3".to_string()),
-            ui::InputEvent::ArrowUp,
-            ui::InputEvent::ArrowUp,
-            ui::InputEvent::ArrowUp,
-            ui::InputEvent::ArrowDown,
-            ui::InputEvent::Interrupt,
-        ]);
+        let mut seq = Sequence::new();
 
-        let expected_cmd_history = Arc::new(Mutex::new(VecDeque::from(vec![
-            "cmd3", "cmd2", "cmd1", "cmd2"
-        ])));
+        for (event, expected_output) in test_plan {
+            interface.expect_get_event()
+                .times(1)
+                .in_sequence(&mut seq)
+                .return_const(event);
 
-        let mut app = Application::faux();
-        let mut interface = TerminalInterface::faux();
+            if let Some(output) = expected_output {
+                interface.expect_set_input_buffer()
+                    .times(1)
+                    .in_sequence(&mut seq)
+                    .with(eq(output.to_string()))
+                    .returning(|_| ());
 
-        faux::when!(interface.set_input_buffer).then({
-            let copy = expected_cmd_history.clone();
-            move |s| assert_eq!(s, copy.lock().unwrap().pop_front().unwrap())});
-
-        faux::when!(interface.get_event()).then_unchecked(
-            |_| events.pop_front().unwrap());
-        
-        faux::when!(app.interface()).then_unchecked({
-            static mut CELL: OnceCell<TerminalInterface> = OnceCell::new();
-            CELL.set(interface).unwrap();
-            |_| CELL.get_mut().unwrap()});
-
-        let test_out = Vec::<u8>::new();
-
-        faux::when!(app.out).then_unchecked( {
-            static mut CELL: OnceCell<Vec<u8>> = OnceCell::new();
-            CELL.set(test_out).unwrap();
-            |_| CELL.get_mut().unwrap()}
-        );
-
-        CliRunner::create(Vec::new(), app).unwrap().run().unwrap();
-        assert!(expected_cmd_history.lock().unwrap().is_empty())
+            }
         }
+
+        CliRunner::create(Vec::new(), create_test_app(interface)).unwrap().run().unwrap();
     }
 
-    // This needs to be here for silly reasons. 
-    impl std::fmt::Debug for TerminalInterface {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "this doesn't matter")
-        }
+    #[test]
+    fn test_command_history_one_cmd_up() {
+        do_command_history_test(vec![
+            (ui::InputEvent::Text("cmd1".to_string()), None), 
+            (ui::InputEvent::ArrowUp, Some("cmd1")), 
+            (ui::InputEvent::Interrupt, None),
+        ])
+    }
+
+    #[test]
+    fn test_command_history_one_cmd_down() {
+        do_command_history_test(vec![
+            (ui::InputEvent::Text("cmd1".to_string()), None), 
+            (ui::InputEvent::ArrowDown, Some("cmd1")), 
+            (ui::InputEvent::Interrupt, None),
+        ])
+    }
+
+    #[test]
+    fn test_command_history_cycle_through_history() {
+        do_command_history_test(vec![
+            (ui::InputEvent::Text("cmd1".to_string()), None), 
+            (ui::InputEvent::Text("cmd2".to_string()), None), 
+            (ui::InputEvent::ArrowUp, Some("cmd2")), 
+            (ui::InputEvent::ArrowUp, Some("cmd1")), 
+            (ui::InputEvent::ArrowUp, Some("cmd2")), // Not sure that rollover is what I actually want
+            (ui::InputEvent::Interrupt, None),
+        ])
+    }
+
+    #[test]
+    fn test_command_history_forward_and_back() {
+        do_command_history_test(vec![
+            (ui::InputEvent::Text("cmd1".to_string()), None), 
+            (ui::InputEvent::Text("cmd2".to_string()), None), 
+            (ui::InputEvent::Text("cmd3".to_string()), None), 
+            (ui::InputEvent::ArrowUp, Some("cmd3")), 
+            (ui::InputEvent::ArrowUp, Some("cmd2")), 
+            (ui::InputEvent::ArrowUp, Some("cmd1")),
+            (ui::InputEvent::ArrowDown, Some("cmd2")),
+            (ui::InputEvent::Interrupt, None),
+        ])
+    }
+
+
+    #[test]
+    fn test_command_history_additional_cmd() {
+        do_command_history_test(vec![
+            (ui::InputEvent::Text("cmd1".to_string()), None), 
+            (ui::InputEvent::ArrowUp, Some("cmd1")), 
+            (ui::InputEvent::Text("cmd2".to_string()), None), 
+            (ui::InputEvent::ArrowUp, Some("cmd2")), 
+            (ui::InputEvent::ArrowUp, Some("cmd1")), 
+            (ui::InputEvent::Interrupt, None),
+        ])
     }
 }

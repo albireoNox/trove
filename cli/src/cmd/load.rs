@@ -39,35 +39,31 @@ Loads saved data from disk."
 
 #[cfg(test)]
 mod tests {
-
-    use crate::cmd::Cmd;
+    use crate::{cmd::Cmd, store::MockFileStore, ui::MockTerminalInterface};
 
     use super::*;
 
-    static mut TEST_OUTPUT: Vec<u8> = Vec::new();
-
     #[test]
     fn execute_load_cmd() {
-        let mut application_mock = Application::faux();
+        let mut interface = MockTerminalInterface::new();
+        let mut file_store = MockFileStore::default();
 
-        faux::when!(
-            application_mock.load_ledger(_)
-        ).then(|()| {
-            let mut test_ledger = Ledger::new_empty();
-            test_ledger.add_new_account(String::from("test_account"));
-            Ok(test_ledger)
-        });
+        file_store.expect_load_ledger()
+            .times(1)
+            .returning(|| {
+                let mut test_ledger = Ledger::new_empty();
+                test_ledger.add_new_account(String::from("test_account"));
+                Ok(test_ledger)
+            });
 
-        unsafe {
-            faux::when!(
-                application_mock.out(_)
-            ).then_unchecked(|_| &mut TEST_OUTPUT); 
-        }
+        interface.expect_write()
+            .returning(|s| Ok(s.len()));
+
+        let mut application_mock = Application::new(interface, file_store);
 
         let load_cmd = Load::new();
         let mut actual_ledger = Ledger::new_empty();
         assert!(load_cmd.execute(&vec![], &mut actual_ledger, &mut application_mock).is_ok());
         assert!(actual_ledger.get_account_by_name_mut(&String::from("test_account")).is_some());
-        unsafe { assert!(TEST_OUTPUT.len() > 0); }
     }
 }

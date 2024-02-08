@@ -11,7 +11,8 @@ ledger = { path = "../ledger" }
 
 chrono = { workspace = true }
 colored = { workspace = true }
+mockall_double = { workspace = true }
 termion = { workspace = true }
 
 [dev-dependencies]
-faux = { workspace = true }
+mockall = { workspace = true }
