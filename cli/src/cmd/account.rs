@@ -2,7 +2,7 @@ use ledger::Ledger;
 
 use crate::app::Application;
 
-use super::{Cmd, CmdError, CmdResult};
+use super::{Cmd, CmdError, CmdErrorType, CmdResult, SyntaxErrorType};
 
 
 pub struct Account {
@@ -21,12 +21,12 @@ impl Cmd for Account {
             Some(&"--list") => {
                 self.list_accounts(ledger, app)
             }
-            Some(unhandled_subcmd) => {
-                Err(CmdError::Syntax(format!("Subcommand '{}' not implemented for command 'account'", unhandled_subcmd)))
+            Some(unhandled_subcommand) => {
+                Err(self.new_error(CmdErrorType::Syntax(SyntaxErrorType::InvalidSubcommand(unhandled_subcommand.to_string()))))
             }
             None => {
-                Err(CmdError::Syntax("Command 'account' needs subcommand.".to_string()))
-            },
+                Err(self.new_error(CmdErrorType::Syntax(SyntaxErrorType::MissingSubcommand)))
+            }
         }
     }
 
@@ -48,7 +48,10 @@ impl Account {
 
     fn add_new_account(&self, args: &[&str], ledger: &mut Ledger, app: &mut Application) -> Result<CmdResult, CmdError> {
         let name = args.first().ok_or(
-            CmdError::Syntax("Adding a new account requires an name".to_string()))?;
+            self.new_error(
+                CmdErrorType::Syntax(
+                    SyntaxErrorType::MissingParam(
+                        "Adding a new account requires an name".to_string()))))?;
 
         ledger.add_new_account(String::from(*name));
         writeln!(app.out(), "Created account '{}'", name)?;

@@ -11,7 +11,7 @@ mod ui;
 use std::{collections::{HashMap, VecDeque}, error::Error, path::PathBuf, rc::Rc};
 
 use app::Application;
-use cmd::{Cmd, CmdError, CmdResult};
+use cmd::{Cmd, CmdError, CmdErrorType, CmdResult};
 use ledger::Ledger;
 use store::FileStore;
 #[mockall_double::double]
@@ -105,7 +105,7 @@ impl CliRunner {
     }
 
     /// Return Ok(true) if we should keep listing for events, and Ok(false) if we should terminate
-    fn handle_input_event(&mut self, event: ui::InputEvent) -> Result<bool, Box<dyn Error>> {
+    fn handle_input_event(&mut self, event: ui::InputEvent) -> Result<bool, CmdError> {
         match event {
             ui::InputEvent::Text(s) => {
                 let result = match self.run_cmd(&s) { 
@@ -122,7 +122,7 @@ impl CliRunner {
         }
     }
 
-    fn page_history(&mut self) -> Result<bool, Box<dyn Error>> {
+    fn page_history(&mut self) -> Result<bool, CmdError> {
         // If there's no history then there's nothing to do here. 
         if self.input_history.is_empty() {
             return Ok(true)
@@ -156,7 +156,7 @@ impl CliRunner {
         }
     }
 
-    fn run_cmd(&mut self, raw_input: &str) -> Result<CmdResult, Box<dyn Error>> {
+    fn run_cmd(&mut self, raw_input: &str) -> Result<CmdResult, CmdError> {
         let tokens_owned = tokenize_string(raw_input);
         let tokens: Vec<&str> = tokens_owned.iter().map(|s| s.as_str()).collect();
 
@@ -173,32 +173,18 @@ impl CliRunner {
             return Ok(CmdResult::Ok)
         }
 
-        let cmd = self.cmd_map.get(cmd_name).ok_or_else(|| format!("Could not find command named '{}'", cmd_name))?;
+        let cmd = self.cmd_map.get(cmd_name).ok_or_else(
+            || CmdError{cmd_name: None, error_type: CmdErrorType::InvalidCommand(cmd_name.to_string())})?;
 
         if args.first().is_some_and(|arg| arg.eq_ignore_ascii_case("--help")) {
             writeln!(self.app.out(), "{}", cmd.help_text())?;
             return Ok(CmdResult::Ok)
         }
 
-        match cmd.execute(args, &mut self.ledger, &mut self.app) {
-            Ok(r) => Ok(r),
-            Err(CmdError::Syntax(msg)) => {
-                // TODO: print usage from cmd object
-                write!(self.app.out(), "Syntax Error: ")?;
-                writeln!(self.app.out(), "{}", msg)?;
-                // We handled the error, now we can return OK
-                Ok(CmdResult::Ok)
-            },
-            Err(CmdError::Argument(msg)) => {
-                Err(Box::new(CmdError::Argument(msg)))
-            }
-            Err(CmdError::Dependency(err)) => { 
-                Err(err) // Pass up dependency errors
-            }
-        }
+        cmd.execute(args, &mut self.ledger, &mut self.app)
     }
 
-    fn print_help(&mut self, args: &[&str]) -> Result<(), Box<dyn Error>> {
+    fn print_help(&mut self, args: &[&str]) -> Result<(), CmdError> {
         match args.first() {
             Some(cmd_name) => { 
                 let cmd = self.cmd_map.get(cmd_name);

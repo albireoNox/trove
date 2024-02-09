@@ -2,7 +2,7 @@ use ledger::Ledger;
 
 use crate::{cmd::CmdResult, app::Application};
 
-use super::CmdError;
+use super::{CmdError, CmdErrorType};
 
 /// Command to load user data from disk
 pub struct Load {
@@ -20,7 +20,7 @@ impl super::Cmd for Load {
                 *ledger = new_ledger
             },
             Err(e) => {
-                return Err(CmdError::Dependency(e))
+                return Err(self.new_error(CmdErrorType::Dependency(e)))
             },
         }
         writeln!(app.out(), "Loaded!")?;

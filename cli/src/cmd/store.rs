@@ -2,7 +2,7 @@ use ledger::Ledger;
 
 use crate::{cmd::CmdResult, app::Application};
 
-use super::CmdError;
+use super::{CmdError, CmdErrorType};
 
 /// Command to save user data
 pub struct Store {
@@ -17,7 +17,7 @@ impl super::Cmd for Store {
         writeln!(app.out(), "Saving user data...")?;
         if let Err(e) = app.store_ledger(ledger) {
             writeln!(app.out(), "Failed to save data!")?;
-            return Err(CmdError::Dependency(e))
+            return Err(self.new_error(CmdErrorType::Dependency(e)))
         }
         writeln!(app.out(), "Saved!")?;
         Ok(CmdResult::Ok)
