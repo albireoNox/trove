@@ -1,5 +1,5 @@
 #[cfg(test)] 
-pub mod store {
+pub mod mock {
     use std::error::Error;
     use ledger::Ledger;
 
@@ -11,3 +11,8 @@ pub mod store {
         }
     }
 }
+#[cfg(test)]
+pub use mock::MockFileStore as FileStore;
+
+#[cfg(not(test))]
+pub use store::FileStore;

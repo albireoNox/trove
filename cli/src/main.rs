@@ -5,7 +5,7 @@
 
 mod app;
 mod cmd;
-mod test;
+mod store;
 mod ui;
 
 use std::{collections::{HashMap, VecDeque}, error::Error, path::PathBuf, rc::Rc};
@@ -13,10 +13,7 @@ use std::{collections::{HashMap, VecDeque}, error::Error, path::PathBuf, rc::Rc}
 use app::Application;
 use cmd::{Cmd, CmdError, CmdResult};
 use ledger::Ledger;
-#[mockall_double::double]
 use store::FileStore;
-#[cfg(test)]
-pub use test::store;
 #[mockall_double::double]
 use ui::TerminalInterface;
 
@@ -293,7 +290,7 @@ mod cli_app_tests {
     fn create_test_app(interface: TerminalInterface) -> Application {
         Application::new(
             interface, 
-            store::MockFileStore::default()) 
+            store::mock::MockFileStore::default()) 
     }
 
     #[test]

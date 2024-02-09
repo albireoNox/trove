@@ -39,7 +39,7 @@ Loads saved data from disk."
 
 #[cfg(test)]
 mod tests {
-    use crate::{cmd::Cmd, store::MockFileStore, ui::MockTerminalInterface};
+    use crate::{cmd::Cmd, store::mock::MockFileStore, ui::MockTerminalInterface};
 
     use super::*;
 

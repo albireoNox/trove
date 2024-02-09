@@ -9,11 +9,7 @@ use std::error::Error;
 
 use ledger::Ledger;
 
-#[cfg(test)]
-pub use crate::test::store;
-#[mockall_double::double]
-use store::FileStore;
-
+use crate::store::FileStore;
 #[mockall_double::double]
 use crate::ui::TerminalInterface;
 
