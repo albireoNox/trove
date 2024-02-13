@@ -1,4 +1,4 @@
-#[derive(PartialEq, PartialOrd, Debug, Clone, Copy, serde::Deserialize, serde::Serialize)]
+#[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
 pub struct Money {
     // For now assume it's USD and just store the number of cents
     // Effective range is ~ ±$92 trillion
@@ -48,6 +48,24 @@ impl std::ops::Add for Money {
 impl std::ops::AddAssign for Money {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
+    }
+}
+
+impl serde::Serialize for Money {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer 
+    {
+        self.cents.serialize(serializer)    
+    }
+}
+
+impl<'a> serde::Deserialize<'a> for Money {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'a> 
+    {
+            Ok(Money{cents: i64::deserialize(deserializer)?}) 
     }
 }
 
