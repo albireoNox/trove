@@ -35,7 +35,7 @@ mod tests {
         let time = "2000-1-1T00:00:00Z".parse::<DateTime<Utc>>().expect("Failed to parse");
         let description = "Widgets Inc.".to_string();
 
-        Transaction::new(amount, time, description)
+        Transaction::new(amount, time, description, None)
     }
 
     #[test]

@@ -29,7 +29,8 @@ impl Cmd for Transaction {
         // TODO: ummm...get this from somewhere
         let time: DateTime<Utc> = Utc::now();
 
-        account.add_transaction(ledger::transaction::Transaction::new(Money::from_float(amount), time, description));
+        // TODO: get category
+        account.add_transaction(ledger::transaction::Transaction::new(Money::from_float(amount), time, description, None));
 
         Ok(CmdResult::Ok)
     }
