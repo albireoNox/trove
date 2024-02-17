@@ -40,6 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn command_list() -> Vec<Rc<dyn Cmd>> {
     vec![
         Rc::new(cmd::account::Account::new()),
+        Rc::new(cmd::category::Category::new()),
         Rc::new(cmd::exit::Exit::new()),
         Rc::new(cmd::load::Load::new()),
         Rc::new(cmd::store::Store::new()),

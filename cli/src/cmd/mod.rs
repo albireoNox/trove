@@ -5,6 +5,7 @@ use ledger::Ledger;
 use super::app::Application;
 
 pub mod account;
+pub mod category;
 pub mod exit;
 pub mod load;
 pub mod store;

@@ -2,20 +2,23 @@
 //! It is the top-level object the application interacts with in order to query and manipulate user data. 
 
 pub mod account;
+pub mod category;
 pub mod common_types;
 pub mod transaction;
 
 use account::Account;
+use category::TransactionCategories;
 
 // TODO: Move this to it's own file, if it's not annoying from a module hierarchy standpoint. 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct Ledger {
     accounts: Vec<Account>,
+    categories: TransactionCategories,
 }
 
 impl Ledger {
     pub fn new_empty() -> Ledger {
-        Ledger {accounts: Vec::new()}
+        Ledger {accounts: Vec::new(), categories: TransactionCategories::new_empty() }
     }
 
     pub fn add_new_account(&mut self, name: String) {
@@ -29,6 +32,14 @@ impl Ledger {
 
     pub fn get_account_by_name_mut(&mut self, name: &str) -> Option<&mut Account> {
         self.accounts.iter_mut().find(|a| a.get_name().eq_ignore_ascii_case(name))
+    }
+
+    pub fn get_transaction_categories(&self) -> &TransactionCategories {
+        &self.categories
+    }
+
+    pub fn get_transaction_categories_mut(&mut self) -> &mut TransactionCategories {
+        &mut self.categories
     }
 }
 

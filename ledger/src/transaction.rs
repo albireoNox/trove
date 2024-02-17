@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{de, Deserialize};
+use crate::category::CategoryId;
 use super::common_types::Money;
 
 #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -7,11 +8,17 @@ pub struct Transaction {
     amount: Money,
     time: Timestamp,
     description: String, 
+    category: Option<CategoryId>,
 }
 
 impl Transaction {
-    pub fn new(amount: Money, time: DateTime<Utc>, description: String) -> Transaction {
-        Transaction {amount, time: Timestamp::from(time), description}
+    pub fn new(
+        amount: Money, 
+        time: DateTime<Utc>, 
+        description: String, 
+        category: Option<CategoryId>,
+    ) -> Transaction {
+        Transaction {amount, time: Timestamp::from(time), description, category}
     }
 
     pub fn get_amount(&self) -> &Money {
@@ -60,7 +67,7 @@ mod tests {
         let description = "Widgets Inc.".to_string();
 
         assert_eq!(
-            Transaction::new(amount, time, description.clone()),
-            Transaction {amount, time: Timestamp(time), description});
+            Transaction::new(amount, time, description.clone(), None),
+            Transaction {amount, time: Timestamp(time), description, category: None});
     }
 }
