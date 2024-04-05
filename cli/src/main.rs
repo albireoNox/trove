@@ -26,14 +26,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     let file_store = FileStore::new(&default_file_store_location());
     let application = Application::new(interface, file_store);
     let mut cli_app = CliRunner::create(command_list(), application)?;
-
-    if let Err(e) = cli_app.run() {
+ 
+    if let Err(e) = cli_app.run(swallow_error) {
+        drop(cli_app); // This causes the ui to return the terminal to normal mode
         eprintln!("Encountered fatal error: {e}");
         eprintln!("Exiting...");
 
-        return Err(e);
+        return Err(Box::new(e));
     }
 
+    Ok(())
+}
+
+fn swallow_error(e: CmdError) -> Result<(), CmdError> {
+    // Just print the error info and move on
+    eprintln!("{}\r", e);
     Ok(())
 }
 
@@ -69,7 +76,7 @@ struct CliRunner {
 }
 
 impl CliRunner {
-    fn create(cmds: Vec<Rc<dyn Cmd>>, app: Application) -> Result<CliRunner, Box<dyn Error>> {
+    pub fn create(cmds: Vec<Rc<dyn Cmd>>, app: Application) -> Result<CliRunner, Box<dyn Error>> {
         let mut cmd_map = HashMap::new();
         for cmd in &cmds {
             for name in cmd.names() {
@@ -87,17 +94,17 @@ impl CliRunner {
     }
 
     // TODO: Write tests for this function
-    fn run(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn run<F>(&mut self, error_handler: F) -> Result<(), CmdError> 
+        where F: Fn(CmdError) -> Result<(), CmdError> {
 
         loop {
             let event = self.app.interface().get_event();
             
             match self.handle_input_event(event) {
-                Ok(false) => break,
-                Ok(true) => continue,
+                Ok(CmdResult::SignalTerminate) => break,
+                Ok(CmdResult::Ok) => continue,
                 Err(e) => {
-                    // For now all errors are recoverable
-                    writeln!(self.app.out(), "{}", e)?; 
+                    error_handler(e)?;
                 }
             }
         }
@@ -105,28 +112,23 @@ impl CliRunner {
         Ok(())
     }
 
-    /// Return Ok(true) if we should keep listing for events, and Ok(false) if we should terminate
-    fn handle_input_event(&mut self, event: ui::InputEvent) -> Result<bool, CmdError> {
+    fn handle_input_event(&mut self, event: ui::InputEvent) -> Result<CmdResult, CmdError> {
         match event {
             ui::InputEvent::Text(s) => {
-                let result = match self.run_cmd(&s) { 
-                    Ok(CmdResult::SignalTerminate) => Ok(false),
-                    Ok(CmdResult::Ok) => Ok(true), 
-                    Err(e) => Err(e)
-                };
+                let result = self.run_cmd(&s);
                 self.add_input_to_history(s);
                 result
             },
             ui::InputEvent::ArrowUp => self.page_history(),
             ui::InputEvent::ArrowDown => self.page_history(),
-            ui::InputEvent::Interrupt => Ok(false),
+            ui::InputEvent::Interrupt => Ok(CmdResult::SignalTerminate),
         }
     }
 
-    fn page_history(&mut self) -> Result<bool, CmdError> {
+    fn page_history(&mut self) -> Result<CmdResult, CmdError> {
         // If there's no history then there's nothing to do here. 
         if self.input_history.is_empty() {
-            return Ok(true)
+            return Ok(CmdResult::Ok)
         }
 
         // Cycle through the history until we get a different kind of event. 
@@ -480,7 +482,7 @@ mod cli_app_tests {
             }
         }
 
-        CliRunner::create(Vec::new(), create_test_app(interface)).unwrap().run().unwrap();
+        CliRunner::create(Vec::new(), create_test_app(interface)).unwrap().run(swallow_error).unwrap();
     }
 
     #[test]
@@ -538,5 +540,55 @@ mod cli_app_tests {
             (ui::InputEvent::ArrowUp, Some("cmd1")), 
             (ui::InputEvent::Interrupt, None),
         ])
+    }
+}
+
+// These are psuedo-integration tests. Probably they should just be actual integration tests, but this gets funny with the mocks, 
+// so for the sake of avoiding that nonsense, they are here for now. 
+#[cfg(test)]
+mod cli_cmd_tests {
+    use mockall::Sequence;
+
+    use crate::cmd::CmdErrorType::*;
+    use crate::cmd::SyntaxErrorType::*;
+
+    use super::*;
+
+    fn expose_error(e: CmdError) -> Result<(), CmdError> {
+        Err(e)
+    }
+
+    fn do_cmd_test(test_plan: Vec<&str>) -> Result<(), CmdError> {
+        let mut interface = TerminalInterface::new();
+        interface.expect_write().returning(|s| Ok(s.len()));
+
+        let mut seq = Sequence::new();
+
+        for input in test_plan {
+            interface.expect_get_event()
+                .times(1)
+                .in_sequence(&mut seq)
+                .return_const(ui::InputEvent::Text(input.to_string()));
+        }
+
+        let app = Application::new(interface, store::mock::MockFileStore::default()); 
+
+        // Use the real commands
+        CliRunner::create(command_list(), app).unwrap().run(expose_error)
+    }
+
+    #[test]
+    fn create_and_exit() {
+        do_cmd_test(vec!["exit"]).unwrap()
+    }
+
+    #[test]
+    fn create_account_missing_subcommand() {
+        let result = do_cmd_test(vec!["account"]);
+        assert!(matches!(result, 
+            Err(CmdError {
+                cmd_name: Some(cmd),
+                error_type: Syntax(MissingSubcommand)
+            }) if cmd == "account"))
     }
 }
